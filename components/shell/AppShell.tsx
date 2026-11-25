@@ -34,11 +34,12 @@ const NotificationListener = dynamic(
   { ssr: false }
 );
 
-// Owner Navigation (Clean 7 items)
+// Owner Navigation (Clean 8 items including Payments & Udhar)
 const ownerNav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tables", label: "Live Tables", icon: CircleDot },
   { href: "/pricing", label: "Table Pricing", icon: DollarSign },
+  { href: "/payments", label: "Payments & Udhar", icon: CreditCard },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/staff", label: "Staff", icon: UserCheck },

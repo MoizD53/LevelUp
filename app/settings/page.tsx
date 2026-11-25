@@ -12,40 +12,57 @@ interface PricingRowState {
 }
 
 const CATEGORY_CONFIG: {
-  kind: TableKind;
+  categoryKey: string;
   name: string;
   countLabel: string;
+  badge?: string;
+  description: string;
 }[] = [
   {
-    kind: "Royal",
+    categoryKey: "Royal",
     name: "Royal Table",
     countLabel: "2 Tables",
+    badge: "VIP",
+    description: "VIP private cuesport tables with premium felt and private lounge",
   },
   {
-    kind: "Snooker",
-    name: "Snooker Table",
+    categoryKey: "Snooker_RD",
+    name: "Snooker — RD",
     countLabel: "2 Tables",
+    badge: "Game 1",
+    description: "Red Ball / Standard Snooker frame tariffs",
   },
   {
-    kind: "Pool",
+    categoryKey: "Snooker_Shuffle",
+    name: "Snooker — Shuffle",
+    countLabel: "2 Tables",
+    badge: "Game 2",
+    description: "Shuffle Snooker game format with custom match scoring",
+  },
+  {
+    categoryKey: "Pool",
     name: "Pool Table",
     countLabel: "1 Table",
+    badge: "9ft",
+    description: "Classic American 8-ball and 9-ball pool table",
   },
 ];
 
 export default function TablePricingSettingsPage() {
   const { user, isOwner } = useAuth();
 
-  // 6 prices state
-  const [rates, setRates] = useState<Record<TableKind, PricingRowState>>({
+  // Pricing state across all categories including Snooker RD & Shuffle
+  const [rates, setRates] = useState<Record<string, PricingRowState>>({
     Royal: { rate_30m: 300, rate_60m: 500 },
-    Snooker: { rate_30m: 200, rate_60m: 350 },
+    Snooker_RD: { rate_30m: 200, rate_60m: 350 },
+    Snooker_Shuffle: { rate_30m: 250, rate_60m: 400 },
     Pool: { rate_30m: 150, rate_60m: 250 },
   });
 
-  const [initialRates, setInitialRates] = useState<Record<TableKind, PricingRowState>>({
+  const [initialRates, setInitialRates] = useState<Record<string, PricingRowState>>({
     Royal: { rate_30m: 300, rate_60m: 500 },
-    Snooker: { rate_30m: 200, rate_60m: 350 },
+    Snooker_RD: { rate_30m: 200, rate_60m: 350 },
+    Snooker_Shuffle: { rate_30m: 250, rate_60m: 400 },
     Pool: { rate_30m: 150, rate_60m: 250 },
   });
 
@@ -59,11 +76,14 @@ export default function TablePricingSettingsPage() {
     setLoading(true);
     try {
       const pricingList = await getTablePricing();
-      const loaded: Record<TableKind, PricingRowState> = {
+      const loaded: Record<string, PricingRowState> = {
         Royal: { rate_30m: 300, rate_60m: 500 },
-        Snooker: { rate_30m: 200, rate_60m: 350 },
+        Snooker_RD: { rate_30m: 200, rate_60m: 350 },
+        Snooker_Shuffle: { rate_30m: 250, rate_60m: 400 },
         Pool: { rate_30m: 150, rate_60m: 250 },
       };
+
+      const legacySnooker = pricingList.find((p) => p.category === "Snooker");
 
       pricingList.forEach((p) => {
         if (loaded[p.category]) {
@@ -73,6 +93,16 @@ export default function TablePricingSettingsPage() {
           };
         }
       });
+
+      // Fallback for Snooker RD & Shuffle if not explicitly loaded
+      if (legacySnooker) {
+        if (!pricingList.some((p) => p.category === "Snooker_RD")) {
+          loaded.Snooker_RD = { rate_30m: legacySnooker.rate_30m, rate_60m: legacySnooker.rate_60m };
+        }
+        if (!pricingList.some((p) => p.category === "Snooker_Shuffle")) {
+          loaded.Snooker_Shuffle = { rate_30m: Math.round(legacySnooker.rate_30m * 1.25), rate_60m: Math.round(legacySnooker.rate_60m * 1.15) };
+        }
+      }
 
       setRates(loaded);
       setInitialRates(loaded);
@@ -104,24 +134,23 @@ export default function TablePricingSettingsPage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
 
-  const handlePriceChange = (category: TableKind, field: "rate_30m" | "rate_60m", val: string) => {
+  const handlePriceChange = (category: string, field: "rate_30m" | "rate_60m", val: string) => {
     const cleanNum = val === "" ? 0 : Math.max(0, parseInt(val, 10) || 0);
 
     setRates((prev) => {
       const next = {
         ...prev,
         [category]: {
-          ...prev[category],
+          ...(prev[category] || { rate_30m: 0, rate_60m: 0 }),
           [field]: cleanNum,
         },
       };
 
       // Check if dirty compared to initial
       const hasChanges = Object.keys(next).some((cat) => {
-        const k = cat as TableKind;
         return (
-          next[k].rate_30m !== initialRates[k].rate_30m ||
-          next[k].rate_60m !== initialRates[k].rate_60m
+          next[cat]?.rate_30m !== initialRates[cat]?.rate_30m ||
+          next[cat]?.rate_60m !== initialRates[cat]?.rate_60m
         );
       });
       setIsDirty(hasChanges);
@@ -139,7 +168,7 @@ export default function TablePricingSettingsPage() {
 
     // Validate prices
     for (const item of CATEGORY_CONFIG) {
-      const row = rates[item.kind];
+      const row = rates[item.categoryKey] || { rate_30m: 0, rate_60m: 0 };
       if (row.rate_30m < 0 || row.rate_60m < 0 || isNaN(row.rate_30m) || isNaN(row.rate_60m)) {
         setFeedback({
           type: "error",
@@ -151,10 +180,19 @@ export default function TablePricingSettingsPage() {
     }
 
     const payload = CATEGORY_CONFIG.map((c) => ({
-      category: c.kind,
-      rate_30m: rates[c.kind].rate_30m,
-      rate_60m: rates[c.kind].rate_60m,
+      category: c.categoryKey,
+      rate_30m: rates[c.categoryKey]?.rate_30m || 0,
+      rate_60m: rates[c.categoryKey]?.rate_60m || 0,
     }));
+
+    // Also update legacy 'Snooker' category to match Snooker_RD
+    if (rates["Snooker_RD"]) {
+      payload.push({
+        category: "Snooker",
+        rate_30m: rates["Snooker_RD"].rate_30m,
+        rate_60m: rates["Snooker_RD"].rate_60m,
+      });
+    }
 
     const result = await saveAllTablePricing(
       payload,
@@ -268,7 +306,7 @@ export default function TablePricingSettingsPage() {
         </div>
       )}
 
-      {/* 3 Clean Table Pricing Cards */}
+      {/* Clean Table & Game Pricing Cards */}
       <div
         style={{
           display: "grid",
@@ -277,12 +315,12 @@ export default function TablePricingSettingsPage() {
           marginBottom: 28,
         }}
       >
-        {CATEGORY_CONFIG.map(({ kind, name, countLabel }) => {
-          const row = rates[kind];
+        {CATEGORY_CONFIG.map(({ categoryKey, name, countLabel, badge, description }) => {
+          const row = rates[categoryKey] || { rate_30m: 0, rate_60m: 0 };
 
           return (
             <div
-              key={kind}
+              key={categoryKey}
               className="glass-card"
               style={{
                 padding: 20,
@@ -304,17 +342,37 @@ export default function TablePricingSettingsPage() {
                   borderBottom: "1px solid var(--border-subtle)",
                 }}
               >
-                <h3
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: "var(--text-primary)",
-                    margin: 0,
-                  }}
-                >
-                  {name}
-                </h3>
-                <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <h3
+                      style={{
+                        fontSize: 16,
+                        fontWeight: 700,
+                        color: "var(--text-primary)",
+                        margin: 0,
+                      }}
+                    >
+                      {name}
+                    </h3>
+                    {badge && (
+                      <span
+                        className="badge"
+                        style={{
+                          fontSize: 10,
+                          padding: "2px 6px",
+                          background: categoryKey.includes("RD") ? "rgba(16, 185, 129, 0.15)" : categoryKey.includes("Shuffle") ? "rgba(59, 130, 246, 0.15)" : undefined,
+                          color: categoryKey.includes("RD") ? "var(--accent-primary)" : categoryKey.includes("Shuffle") ? "#60A5FA" : undefined,
+                        }}
+                      >
+                        {badge}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                    {description}
+                  </div>
+                </div>
+                <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontWeight: 500, flexShrink: 0 }}>
                   {countLabel}
                 </span>
               </div>
@@ -352,7 +410,7 @@ export default function TablePricingSettingsPage() {
                     min="0"
                     step="10"
                     value={row.rate_30m || ""}
-                    onChange={(e) => handlePriceChange(kind, "rate_30m", e.target.value)}
+                    onChange={(e) => handlePriceChange(categoryKey, "rate_30m", e.target.value)}
                     placeholder="0"
                     style={{
                       width: "100%",
@@ -404,7 +462,7 @@ export default function TablePricingSettingsPage() {
                     min="0"
                     step="10"
                     value={row.rate_60m || ""}
-                    onChange={(e) => handlePriceChange(kind, "rate_60m", e.target.value)}
+                    onChange={(e) => handlePriceChange(categoryKey, "rate_60m", e.target.value)}
                     placeholder="0"
                     style={{
                       width: "100%",

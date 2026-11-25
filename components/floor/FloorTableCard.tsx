@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { ClubTable } from "@/lib/types";
+import type { ClubTable, TablePricing } from "@/lib/types";
 import { formatCountdown } from "@/lib/turso/service";
 import {
   Clock,
@@ -17,7 +17,8 @@ interface FloorTableCardProps {
   table: ClubTable;
   rate30m?: number;
   rate60m?: number;
-  onStartSession: (table: ClubTable) => void;
+  pricingList?: TablePricing[];
+  onStartSession: (table: ClubTable, gameType?: "RD" | "Shuffle") => void;
   onManageSession: (table: ClubTable) => void;
   onQuickAddItems?: (table: ClubTable) => void;
 }
@@ -26,6 +27,7 @@ export function FloorTableCard({
   table,
   rate30m = 200,
   rate60m = 350,
+  pricingList = [],
   onStartSession,
   onManageSession,
 }: FloorTableCardProps) {
@@ -89,6 +91,10 @@ export function FloorTableCard({
     [184, 94],
   ];
 
+  const isSnooker = table.kind === "Snooker";
+  const snookerRDRates = pricingList.find((p) => p.category === "Snooker_RD") || { rate_30m: 200, rate_60m: 350 };
+  const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || { rate_30m: 250, rate_60m: 400 };
+
   // Booked duration calculation
   const totalDurationMins = table.duration_choice === "1h" ? 60 : (table.kind === "Pool" ? 2 : 30);
   const totalDurationSec = totalDurationMins * 60;
@@ -137,11 +143,30 @@ export function FloorTableCard({
               >
                 {table.kind}
               </span>
+              {isSnooker && table.game_type && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: "2px 7px",
+                    borderRadius: "var(--r-xs)",
+                    background: table.game_type === "Shuffle" ? "rgba(59, 130, 246, 0.2)" : "rgba(16, 185, 129, 0.2)",
+                    border: table.game_type === "Shuffle" ? "1px solid rgba(59, 130, 246, 0.4)" : "1px solid rgba(16, 185, 129, 0.4)",
+                    color: table.game_type === "Shuffle" ? "#60A5FA" : "var(--accent-primary)",
+                  }}
+                >
+                  {table.game_type}
+                </span>
+              )}
             </div>
 
             {/* 2. Rates beneath title */}
             <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 4, fontFamily: "var(--font-mono)" }}>
-              ₹{rate30m}/{table.kind === "Pool" ? "2m" : "30m"} · ₹{rate60m}/1h
+              {isSnooker ? (
+                <>RD: ₹{snookerRDRates.rate_30m}/30m · Shuffle: ₹{snookerShuffleRates.rate_30m}/30m</>
+              ) : (
+                <>₹{rate30m}/{table.kind === "Pool" ? "2m" : "30m"} · ₹{rate60m}/1h</>
+              )}
             </div>
           </div>
 
@@ -434,7 +459,7 @@ export function FloorTableCard({
 
               {/* Duration Booked & Accrued Bill */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, color: "var(--text-secondary)" }}>
-                <span>Booked: {table.duration_choice || "30m"}</span>
+                <span>Booked: {table.duration_choice || "30m"}{isSnooker && table.game_type ? ` · ${table.game_type}` : ""}</span>
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>
                   Bill: ₹{table.bill || 0}
                 </span>
@@ -485,16 +510,51 @@ export function FloorTableCard({
               width: "100%",
               height: 38,
               fontSize: 12.5,
-              fontWeight: 600,
+              fontWeight: 700,
               gap: 6,
-              background: isTimeUp ? "rgba(245, 158, 11, 0.16)" : "var(--bg-surface-raised)",
-              borderColor: isTimeUp ? "rgba(245, 158, 11, 0.55)" : "var(--border-default)",
+              background: isTimeUp ? "rgba(245, 158, 11, 0.2)" : "var(--bg-surface-raised)",
+              borderColor: isTimeUp ? "rgba(245, 158, 11, 0.6)" : "var(--border-default)",
               color: isTimeUp ? "var(--amber)" : "var(--text-primary)",
             }}
           >
-            <Sliders size={14} />
-            <span>{isTimeUp ? "Manage Expired Session" : "Manage Session"}</span>
+            {isTimeUp ? <AlertTriangle size={15} /> : <Sliders size={14} />}
+            <span>{isTimeUp ? "Time Up — Collect Payment & Settle" : "Manage Session"}</span>
           </button>
+        ) : isSnooker ? (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => onStartSession(table, "RD")}
+              className="btn btn-primary"
+              style={{
+                height: 38,
+                fontSize: 12,
+                fontWeight: 700,
+                gap: 5,
+                background: "linear-gradient(180deg, #00C78A 0%, #009E6D 100%)",
+              }}
+            >
+              <Play size={12} fill="currentColor" />
+              <span>Start RD</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onStartSession(table, "Shuffle")}
+              className="btn"
+              style={{
+                height: 38,
+                fontSize: 12,
+                fontWeight: 700,
+                gap: 5,
+                background: "rgba(59, 130, 246, 0.16)",
+                border: "1px solid rgba(59, 130, 246, 0.4)",
+                color: "#60A5FA",
+              }}
+            >
+              <Play size={12} fill="currentColor" />
+              <span>Start Shuffle</span>
+            </button>
+          </div>
         ) : (
           <button
             onClick={() => onStartSession(table)}

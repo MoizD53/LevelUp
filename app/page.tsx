@@ -11,6 +11,7 @@ import {
   Clock,
   Search,
   Filter,
+  AlertCircle,
   Plus,
   Sliders,
   X,
@@ -44,6 +45,7 @@ import type {
 import { StartSessionModal } from "@/components/floor/StartSessionModal";
 import { ManageSessionModal } from "@/components/floor/ManageSessionModal";
 import { ManagerFloorDashboard } from "@/components/floor/ManagerFloorDashboard";
+import { UdharListModal } from "@/components/floor/UdharListModal";
 
 export default function DashboardPage() {
   const { user, isOwner } = useAuth();
@@ -92,6 +94,7 @@ export default function DashboardPage() {
   // Modal States
   const [startModalTable, setStartModalTable] = useState<ClubTable | null>(null);
   const [manageModalTable, setManageModalTable] = useState<ClubTable | null>(null);
+  const [udharModalOpen, setUdharModalOpen] = useState(false);
   const [pricingList, setPricingList] = useState<TablePricing[]>([]);
   const [detailModalSession, setDetailModalSession] = useState<SessionRow | null>(null);
 
@@ -356,6 +359,24 @@ export default function DashboardPage() {
               <span>Expenses</span>
             </button>
           </Link>
+
+          <button
+            type="button"
+            onClick={() => setUdharModalOpen(true)}
+            className="btn"
+            style={{
+              height: 32,
+              fontSize: 12,
+              gap: 5,
+              background: "rgba(245, 158, 11, 0.14)",
+              border: "1px solid rgba(245, 158, 11, 0.4)",
+              color: "var(--amber)",
+              fontWeight: 700,
+            }}
+          >
+            <AlertCircle size={13} />
+            <span>Udhar List</span>
+          </button>
 
           <button
             onClick={() => {
@@ -859,6 +880,12 @@ export default function DashboardPage() {
           }}
         />
       )}
+
+      <UdharListModal
+        isOpen={udharModalOpen}
+        onClose={() => setUdharModalOpen(false)}
+        onSettled={loadDashboardData}
+      />
 
       {/* Match Details Modal */}
       {detailModalSession && (

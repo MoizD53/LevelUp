@@ -99,11 +99,29 @@ export function ManageSessionModal({
   const isTimeUp = isPlaying && Boolean(table.scheduled_end_at) && remainingSec <= 0;
   const isEndingSoon = isPlaying && Boolean(table.scheduled_end_at) && remainingSec > 0 && remainingSec <= 300;
 
+  useEffect(() => {
+    if (isTimeUp) {
+      setActiveTab("payment");
+    }
+  }, [isTimeUp]);
+
   // Active pricing for extensions
-  const pricing = pricingList.find((p) => p.category === table.kind) || {
-    rate_30m: table.kind === "Royal" ? 300 : table.kind === "Snooker" ? 200 : 150,
-    rate_60m: table.kind === "Royal" ? 500 : table.kind === "Snooker" ? 350 : 250,
+  const isSnooker = table.kind === "Snooker";
+  const snookerRDRates = pricingList.find((p) => p.category === "Snooker_RD") || pricingList.find((p) => p.category === "Snooker") || {
+    rate_30m: 200,
+    rate_60m: 350,
   };
+  const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || {
+    rate_30m: 250,
+    rate_60m: 400,
+  };
+
+  const pricing = isSnooker
+    ? (table.game_type === "Shuffle" ? snookerShuffleRates : snookerRDRates)
+    : (pricingList.find((p) => p.category === table.kind) || {
+        rate_30m: table.kind === "Royal" ? 300 : 150,
+        rate_60m: table.kind === "Royal" ? 500 : 250,
+      });
 
   // Calculate bill components
   const baseTableFee = table.bill || (table.duration_choice === "1h" ? pricing.rate_60m : pricing.rate_30m);
@@ -403,7 +421,7 @@ export function ManageSessionModal({
               <span>{table.player || "Walk-in Match"}</span>
             </div>
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-              Booked: {table.duration_choice || "30m"} · Bill: ₹{totalBill}
+              Booked: {table.duration_choice || "30m"}{isSnooker && table.game_type ? ` · ${table.game_type}` : ""} · Bill: ₹{totalBill}
             </div>
           </div>
 
@@ -1179,6 +1197,25 @@ export function ManageSessionModal({
               </span>
             </div>
 
+            {remainingUdhar > 0 && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "var(--r-xs)",
+                  background: "rgba(245, 158, 11, 0.12)",
+                  border: "1px solid rgba(245, 158, 11, 0.35)",
+                  color: "var(--amber)",
+                  fontSize: 12,
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 2 }}>⚠️ Marked to Udhar Khata (Credit)</div>
+                <span>
+                  Recording <strong>₹{remainingUdhar}</strong> as outstanding Udhar for <strong>{table.player}</strong>.
+                  Both Manager and Owner will see this in the Udhar List until collected.
+                </span>
+              </div>
+            )}
+
             {/* Submit Button */}
             <button
               type="submit"
@@ -1189,11 +1226,21 @@ export function ManageSessionModal({
                 height: 42,
                 fontSize: 13.5,
                 fontWeight: 700,
-                background: "linear-gradient(180deg, #00C78A 0%, #009E6D 100%)",
+                background: remainingUdhar > 0
+                  ? "linear-gradient(180deg, #F59E0B 0%, #D97706 100%)"
+                  : "linear-gradient(180deg, #00C78A 0%, #009E6D 100%)",
+                borderColor: remainingUdhar > 0 ? "rgba(245, 158, 11, 0.7)" : undefined,
+                color: remainingUdhar > 0 ? "#050B08" : undefined,
               }}
             >
               <CheckCircle2 size={16} />
-              <span>{isCollecting ? "Settling Ledger..." : "Confirm Payment & Free Table"}</span>
+              <span>
+                {isCollecting
+                  ? "Recording Settlement..."
+                  : remainingUdhar > 0
+                  ? `Confirm ₹${remainingUdhar} Udhar & Free Table`
+                  : "Confirm Payment & Free Table"}
+              </span>
             </button>
           </form>
         )}

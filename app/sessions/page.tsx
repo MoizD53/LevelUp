@@ -237,7 +237,7 @@ export default function SessionsPage() {
                         )}
                       </td>
                       <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)" }}>
-                        {s.table} ({s.table_kind || "Snooker"})
+                        {s.table_kind === "Cafe" ? "Counter (Cigg, Drinks & Chips)" : s.table} ({s.table_kind === "Snooker" ? (s.game_type ? `Snooker — ${s.game_type}` : "Snooker") : (s.table_kind || "Snooker")})
                       </td>
                       <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
                         {new Date(s.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

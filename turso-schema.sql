@@ -11,7 +11,11 @@ CREATE TABLE IF NOT EXISTS club_tables (
   min_fee REAL NOT NULL DEFAULT 50.00,
   current_player TEXT,
   current_phone TEXT,
+  game_type TEXT,
   session_started_at TEXT,
+  scheduled_end_at TEXT,
+  duration_choice TEXT,
+  current_session_id TEXT,
   notes TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
@@ -19,7 +23,7 @@ CREATE TABLE IF NOT EXISTS club_tables (
 
 CREATE TABLE IF NOT EXISTS table_pricing (
   id TEXT PRIMARY KEY,
-  category TEXT NOT NULL UNIQUE CHECK (category IN ('Royal', 'Snooker', 'Pool')),
+  category TEXT NOT NULL UNIQUE,
   rate_30m REAL NOT NULL,
   rate_60m REAL NOT NULL,
   updated_by TEXT DEFAULT 'owner',
@@ -43,6 +47,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   table_id TEXT,
   table_name TEXT NOT NULL,
   table_kind TEXT DEFAULT 'Snooker',
+  game_type TEXT,
   customer_name TEXT NOT NULL DEFAULT 'Walk-in Player',
   customer_phone TEXT,
   hourly_rate REAL NOT NULL,

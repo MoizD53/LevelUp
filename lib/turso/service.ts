@@ -9,6 +9,7 @@ import type {
   CategoryTableUsage,
   TableKind,
   SessionItem,
+  UdharDebtor,
 } from "@/lib/types";
 
 const DEFAULT_CLUB_TABLES: ClubTable[] = [
@@ -124,6 +125,7 @@ export async function getLiveTables(): Promise<ClubTable[]> {
           if (!p || String(p) === "null" || String(p).trim() === "") return undefined;
           return String(p).trim();
         })(),
+        game_type: row.game_type ? String(row.game_type) : (activeSess?.game_type ? String(activeSess.game_type) : undefined),
         session_started_at: startIso ? String(startIso) : undefined,
         scheduled_end_at: scheduledEndIso ? String(scheduledEndIso) : undefined,
         duration_choice: (row.duration_choice || (activeSess ? activeSess.duration_choice : "30m")) as "30m" | "1h",
@@ -191,7 +193,8 @@ export async function getLiveSessions(limit: number = 50): Promise<SessionRow[]>
         id: String(s.id),
         table_id: String(s.table_id || "table"),
         table: String(s.table_name || "Arena Table"),
-        table_kind: (s.table_kind as TableKind) || "Snooker",
+        table_kind: (s.table_kind as any) || "Snooker",
+        game_type: s.game_type ? String(s.game_type) : undefined,
         player: String(s.customer_name || "Walk-in Player"),
         phone: s.customer_phone && String(s.customer_phone) !== "null" ? String(s.customer_phone) : undefined,
         hourly_rate: Number(s.hourly_rate),
@@ -415,18 +418,48 @@ export async function getTablePricing(): Promise<TablePricing[]> {
     if (!res.rows || res.rows.length === 0) {
       return [
         { id: "price_royal", category: "Royal", rate_30m: 300, rate_60m: 500 },
+        { id: "price_snooker_rd", category: "Snooker_RD", rate_30m: 200, rate_60m: 350 },
+        { id: "price_snooker_shuffle", category: "Snooker_Shuffle", rate_30m: 250, rate_60m: 400 },
         { id: "price_snooker", category: "Snooker", rate_30m: 200, rate_60m: 350 },
         { id: "price_pool", category: "Pool", rate_30m: 150, rate_60m: 250 },
       ];
     }
-    return res.rows.map((r: any) => ({
+    const pricingList = res.rows.map((r: any) => ({
       id: String(r.id),
-      category: r.category as TableKind,
+      category: String(r.category) as any,
       rate_30m: Number(r.rate_30m),
       rate_60m: Number(r.rate_60m),
       updated_by: r.updated_by ? String(r.updated_by) : "owner",
       updated_at: r.updated_at ? String(r.updated_at) : undefined,
     }));
+
+    // Ensure Snooker_RD and Snooker_Shuffle exist if only legacy 'Snooker' was present
+    const hasRD = pricingList.some((p) => p.category === "Snooker_RD");
+    const hasShuffle = pricingList.some((p) => p.category === "Snooker_Shuffle");
+    const snookerLegacy = pricingList.find((p) => p.category === "Snooker");
+
+    if (!hasRD) {
+      pricingList.push({
+        id: "price_snooker_rd",
+        category: "Snooker_RD",
+        rate_30m: snookerLegacy ? snookerLegacy.rate_30m : 200,
+        rate_60m: snookerLegacy ? snookerLegacy.rate_60m : 350,
+        updated_by: "owner",
+        updated_at: undefined,
+      });
+    }
+    if (!hasShuffle) {
+      pricingList.push({
+        id: "price_snooker_shuffle",
+        category: "Snooker_Shuffle",
+        rate_30m: snookerLegacy ? Math.round(snookerLegacy.rate_30m * 1.25) : 250,
+        rate_60m: snookerLegacy ? Math.round(snookerLegacy.rate_60m * 1.15) : 400,
+        updated_by: "owner",
+        updated_at: undefined,
+      });
+    }
+
+    return pricingList;
   } catch (err) {
     console.debug("Error loading table pricing:", err);
     return [];
@@ -434,7 +467,7 @@ export async function getTablePricing(): Promise<TablePricing[]> {
 }
 
 export async function updateTablePricing(
-  category: TableKind,
+  category: string,
   rate_30m: number,
   rate_60m: number,
   updatedBy: string = "manager",
@@ -459,10 +492,17 @@ export async function updateTablePricing(
     });
 
     // Also update current active tables default hourly rate
-    await client.execute({
-      sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = ?`,
-      args: [rate_60m, category],
-    });
+    if (category === "Royal" || category === "Snooker" || category === "Pool") {
+      await client.execute({
+        sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = ?`,
+        args: [rate_60m, category],
+      });
+    } else if (category === "Snooker_RD" || category === "Snooker_Shuffle") {
+      await client.execute({
+        sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = 'Snooker'`,
+        args: [rate_60m],
+      });
+    }
 
     // Log to audit trail
     await client.execute({
@@ -492,7 +532,7 @@ export async function updateTablePricing(
 
 /** 6b. Batch Save Table Pricing for All Categories (Owner & Manager Authorized) */
 export async function saveAllTablePricing(
-  rates: { category: TableKind; rate_30m: number; rate_60m: number }[],
+  rates: { category: string; rate_30m: number; rate_60m: number }[],
   updatedBy: string = "manager",
   userRole: string = "staff"
 ): Promise<{ success: boolean; error?: string }> {
@@ -527,10 +567,17 @@ export async function saveAllTablePricing(
       });
 
       // Update club_tables fleet baseline hourly rate for that category
-      await client.execute({
-        sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = ?`,
-        args: [r.rate_60m, r.category],
-      });
+      if (r.category === "Royal" || r.category === "Snooker" || r.category === "Pool") {
+        await client.execute({
+          sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = ?`,
+          args: [r.rate_60m, r.category],
+        });
+      } else if (r.category === "Snooker_RD" || r.category === "Snooker_Shuffle") {
+        await client.execute({
+          sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = 'Snooker'`,
+          args: [r.rate_60m],
+        });
+      }
     }
 
     // Record audit trail
@@ -1021,6 +1068,7 @@ export async function startFloorSession(params: {
   tableId: string;
   tableName: string;
   tableKind: TableKind;
+  gameType?: string;
   playerName: string;
   phone?: string;
   durationChoice: "30m" | "1h";
@@ -1050,15 +1098,16 @@ export async function startFloorSession(params: {
     // 2. Insert Session with Rate Snapshot and Scheduled End
     await client.execute({
       sql: `INSERT INTO sessions (
-              id, table_id, table_name, table_kind, customer_name, customer_phone,
+              id, table_id, table_name, table_kind, game_type, customer_name, customer_phone,
               hourly_rate, rate_snapshot, started_at, scheduled_end_at, duration_choice, duration_minutes,
               table_amount, final_total, status, paid, payment_status, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 'Unpaid', ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 'Unpaid', ?)`,
       args: [
         sessionId,
         params.tableId,
         params.tableName,
         params.tableKind,
+        params.gameType || null,
         params.playerName.trim(),
         params.phone ? params.phone.trim() : null,
         params.rateSnapshot,
@@ -1077,12 +1126,14 @@ export async function startFloorSession(params: {
     await client.execute({
       sql: `UPDATE club_tables 
             SET status = 'playing', current_player = ?, current_phone = ?,
+                game_type = ?,
                 session_started_at = ?, scheduled_end_at = ?, duration_choice = ?,
                 current_session_id = ?, updated_at = datetime('now')
             WHERE id = ?`,
       args: [
         params.playerName.trim(),
         params.phone ? params.phone.trim() : null,
+        params.gameType || null,
         nowIso,
         scheduledEndIso,
         params.durationChoice,
@@ -1103,6 +1154,7 @@ export async function startFloorSession(params: {
           sessionId,
           tableName: params.tableName,
           player: params.playerName,
+          gameType: params.gameType,
           duration: params.durationChoice,
           price: params.rateSnapshot,
           manager: params.managerName || "manager",
@@ -1407,6 +1459,7 @@ export async function collectFloorPayment(params: {
             SET status = 'available',
                 current_player = NULL,
                 current_phone = NULL,
+                game_type = NULL,
                 session_started_at = NULL,
                 scheduled_end_at = NULL,
                 duration_choice = NULL,
@@ -1792,3 +1845,180 @@ export async function settleCustomerUdhar(params: {
     return { success: false, error: String(err) };
   }
 }
+
+/** 21. Quick Cafe / Cigg & Chips Orders (Direct Counter Sales without Table) */
+export async function createCafeQuickOrder(params: {
+  customerName: string;
+  customerPhone?: string;
+  items: {
+    name: string;
+    category: "Drinks" | "Snacks" | "Cigarettes" | "Other" | string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }[];
+  paymentMethod: "cash" | "upi" | "udhar" | "split";
+  cashPaid?: number;
+  upiPaid?: number;
+  udharAmount?: number;
+  upiReference?: string;
+  discountAmount?: number;
+  notes?: string;
+  managerName?: string;
+}): Promise<{ success: boolean; sessionId?: string; error?: string }> {
+  try {
+    const client = getTursoClient();
+    const sessionId = `cafe_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const nowIso = new Date().toISOString();
+
+    const itemsTotal = params.items.reduce((acc, it) => acc + (it.totalPrice || 0), 0);
+    const discount = Math.max(0, params.discountAmount || 0);
+    const finalTotal = Math.max(0, itemsTotal - discount);
+
+    const isFullUdhar = params.paymentMethod === "udhar" || (params.udharAmount != null && params.udharAmount >= finalTotal && (!params.cashPaid && !params.upiPaid));
+    const isPaid = !isFullUdhar && (!params.udharAmount || params.udharAmount <= 0);
+    const paymentStatus = isPaid ? "Paid" : (params.udharAmount && params.udharAmount > 0 && params.udharAmount < finalTotal ? "Partially Paid" : "Unpaid");
+
+    await client.execute({
+      sql: `INSERT INTO sessions (
+              id, table_id, table_name, table_kind, customer_name, customer_phone,
+              hourly_rate, rate_snapshot, started_at, ended_at, duration_choice, duration_minutes,
+              table_amount, items_amount, discount_amount, final_total, status, paid,
+              payment_status, payment_method, cash_paid, upi_paid, udhar_amount, upi_reference,
+              created_by
+            ) VALUES (?, 'counter-cafe', 'Cafe Counter (Cigg, Drinks & Chips)', 'Cafe', ?, ?,
+                     0, 0, ?, ?, 'quick', 0,
+                     0, ?, ?, ?, 'completed', ?,
+                     ?, ?, ?, ?, ?, ?,
+                     ?)`,
+      args: [
+        sessionId,
+        params.customerName.trim() || "Walk-in Counter Customer",
+        params.customerPhone ? params.customerPhone.trim() : null,
+        nowIso,
+        nowIso,
+        itemsTotal,
+        discount,
+        finalTotal,
+        isPaid ? 1 : 0,
+        paymentStatus,
+        params.paymentMethod,
+        params.cashPaid || 0,
+        params.upiPaid || 0,
+        params.udharAmount != null ? params.udharAmount : (isFullUdhar ? finalTotal : 0),
+        params.upiReference || null,
+        params.managerName || "manager",
+      ],
+    });
+
+    // Insert items into session_items
+    for (const it of params.items) {
+      const itemId = `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      await client.execute({
+        sql: `INSERT INTO session_items (id, session_id, product_name, quantity, unit_price, total_price)
+              VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [
+          itemId,
+          sessionId,
+          `${it.name} (${it.category})`,
+          it.quantity,
+          it.unitPrice,
+          it.totalPrice,
+        ],
+      });
+    }
+
+    // Audit log
+    await client.execute({
+      sql: `INSERT INTO audit_logs (id, action, role, details) VALUES (?, ?, ?, ?)`,
+      args: [
+        `audit_${Date.now()}`,
+        "CAFE_ORDER",
+        "staff",
+        JSON.stringify({
+          sessionId,
+          customer: params.customerName,
+          itemsCount: params.items.length,
+          total: finalTotal,
+          paymentMethod: params.paymentMethod,
+          manager: params.managerName || "manager",
+        }),
+      ],
+    });
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("levelup_floor_update"));
+      try {
+        const bc = new BroadcastChannel("levelup_floor_sync");
+        bc.postMessage({ type: "floor_update", action: "cafe_order", sessionId });
+        bc.close();
+      } catch (e) {}
+    }
+
+    return { success: true, sessionId };
+  } catch (err: any) {
+    console.error("Failed to create cafe order:", err);
+    return { success: false, error: err.message || "Failed to record cafe sale." };
+  }
+}
+
+/** 22. Get Aggregated Udhar Debtors List (For Owner & Manager) */
+export async function getUdharDebtors(): Promise<UdharDebtor[]> {
+  try {
+    const client = getTursoClient();
+    const res = await client.execute(`
+      SELECT id, table_name, table_kind, game_type, customer_name, customer_phone,
+             final_total, udhar_amount, started_at, notes, payment_status, paid, payment_method
+      FROM sessions
+      WHERE status != 'voided' AND (paid = 0 OR payment_status != 'Paid' OR (udhar_amount > 0 AND payment_status != 'Paid'))
+      ORDER BY started_at DESC
+    `);
+
+    const map = new Map<string, UdharDebtor>();
+
+    for (const r of res.rows as any[]) {
+      const name = String(r.customer_name || "Walk-in").trim();
+      const phone = r.customer_phone && String(r.customer_phone) !== "null" ? String(r.customer_phone).trim() : undefined;
+      const key = phone ? `${name.toLowerCase()}_${phone}` : name.toLowerCase();
+      const amount = Number(r.final_total || 0);
+      const udharAmt = Number(r.udhar_amount != null && Number(r.udhar_amount) > 0 ? r.udhar_amount : (!r.paid ? amount : 0));
+
+      if (udharAmt <= 0) continue;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          customerName: name,
+          customerPhone: phone,
+          totalUdhar: 0,
+          lastDate: String(r.started_at),
+          sessionCount: 0,
+          sessions: [],
+        });
+      }
+
+      const debtor = map.get(key)!;
+      debtor.totalUdhar += udharAmt;
+      debtor.sessionCount += 1;
+      debtor.sessions.push({
+        sessionId: String(r.id),
+        table: String(r.table_name || "Table"),
+        tableKind: r.table_kind as TableKind,
+        gameType: r.game_type ? String(r.game_type) : undefined,
+        startedAt: String(r.started_at),
+        amount,
+        udharAmount: udharAmt,
+        notes: r.notes ? String(r.notes) : undefined,
+      });
+
+      if (new Date(String(r.started_at)) > new Date(debtor.lastDate)) {
+        debtor.lastDate = String(r.started_at);
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => b.totalUdhar - a.totalUdhar);
+  } catch (err) {
+    console.error("Failed to get udhar debtors:", err);
+    return [];
+  }
+}
+

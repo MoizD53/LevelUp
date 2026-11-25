@@ -38,6 +38,8 @@ import type { ClubTable, Product, SessionRow, TablePricing } from "@/lib/types";
 import { FloorTableCard } from "./FloorTableCard";
 import { StartSessionModal } from "./StartSessionModal";
 import { ManageSessionModal } from "./ManageSessionModal";
+import { UdharListModal } from "./UdharListModal";
+import { CafeQuickOrderModal } from "./CafeQuickOrderModal";
 
 export function ManagerFloorDashboard() {
   const { user } = useAuth();
@@ -54,7 +56,10 @@ export function ManagerFloorDashboard() {
 
   // Modals state
   const [startModalTable, setStartModalTable] = useState<ClubTable | null>(null);
+  const [startModalGameType, setStartModalGameType] = useState<"RD" | "Shuffle" | undefined>(undefined);
   const [manageModalTable, setManageModalTable] = useState<ClubTable | null>(null);
+  const [udharModalOpen, setUdharModalOpen] = useState(false);
+  const [cafeModalOpen, setCafeModalOpen] = useState(false);
   const [deleteConfirmTable, setDeleteConfirmTable] = useState<ClubTable | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
@@ -181,6 +186,25 @@ export function ManagerFloorDashboard() {
       .reduce((sum, s) => sum + (s.udhar_amount || (!s.paid ? s.amount : 0)), 0);
   }, [sessions]);
 
+  // Calculate live Udhar statistics
+  const pendingUdharTotal = useMemo(() => {
+    return sessions
+      .filter((s) => s.status !== "voided" && (!s.paid || s.payment_status !== "Paid" || (s.udhar_amount && s.udhar_amount > 0)))
+      .reduce((sum, s) => sum + (s.udhar_amount || (!s.paid ? s.amount : 0)), 0);
+  }, [sessions]);
+
+  const udharDebtorsCount = useMemo(() => {
+    const set = new Set<string>();
+    sessions
+      .filter((s) => s.status !== "voided" && (!s.paid || s.payment_status !== "Paid" || (s.udhar_amount && s.udhar_amount > 0)))
+      .forEach((s) => {
+        if ((s.udhar_amount || (!s.paid ? s.amount : 0)) > 0) {
+          set.add(s.player.trim().toLowerCase());
+        }
+      });
+    return set.size;
+  }, [sessions]);
+
   // Filtered tables based on search
   const filteredTables = useMemo(() => {
     if (!searchQuery.trim()) return tables;
@@ -232,10 +256,48 @@ export function ManagerFloorDashboard() {
           </div>
 
           <button
+            type="button"
+            onClick={() => setCafeModalOpen(true)}
+            className="btn"
+            style={{
+              height: 34,
+              fontSize: 12,
+              gap: 5,
+              background: "rgba(59, 130, 246, 0.12)",
+              border: "1px solid rgba(59, 130, 246, 0.35)",
+              color: "#60A5FA",
+              fontWeight: 700,
+            }}
+          >
+            <ShoppingBag size={13} />
+            <span>+ Cigg &amp; Drinks</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setUdharModalOpen(true)}
+            className="btn"
+            style={{
+              height: 34,
+              fontSize: 12,
+              gap: 5,
+              background: "rgba(245, 158, 11, 0.14)",
+              border: "1px solid rgba(245, 158, 11, 0.4)",
+              color: "var(--amber)",
+              fontWeight: 700,
+            }}
+          >
+            <AlertTriangle size={13} />
+            <span>Udhar List ({udharDebtorsCount}) · ₹{pendingUdharTotal}</span>
+          </button>
+
+          <button
             onClick={() => {
               const available = tables.find((t) => t.status === "available");
-              if (available) setStartModalTable(available);
-              else alert("All tables are currently occupied.");
+              if (available) {
+                setStartModalGameType(undefined);
+                setStartModalTable(available);
+              } else alert("All tables are currently occupied.");
             }}
             className="btn btn-primary"
             style={{ height: 34, fontSize: 12.5 }}
@@ -371,7 +433,11 @@ export function ManagerFloorDashboard() {
                 table={table}
                 rate30m={pricing?.rate_30m ?? (table.kind === "Royal" ? 300 : table.kind === "Snooker" ? 200 : 150)}
                 rate60m={pricing?.rate_60m ?? (table.kind === "Royal" ? 500 : table.kind === "Snooker" ? 350 : 250)}
-                onStartSession={(t) => setStartModalTable(t)}
+                pricingList={pricingList}
+                onStartSession={(t, g) => {
+                  setStartModalGameType(g);
+                  setStartModalTable(t);
+                }}
                 onManageSession={(t) => setManageModalTable(t)}
               />
             );
@@ -483,9 +549,14 @@ export function ManagerFloorDashboard() {
         <StartSessionModal
           table={startModalTable}
           pricingList={pricingList}
-          onClose={() => setStartModalTable(null)}
+          initialGameType={startModalGameType}
+          onClose={() => {
+            setStartModalTable(null);
+            setStartModalGameType(undefined);
+          }}
           onSessionStarted={() => {
             setStartModalTable(null);
+            setStartModalGameType(undefined);
             loadFloorData();
           }}
         />
@@ -503,6 +574,18 @@ export function ManagerFloorDashboard() {
           }}
         />
       )}
+
+      <UdharListModal
+        isOpen={udharModalOpen}
+        onClose={() => setUdharModalOpen(false)}
+        onSettled={loadFloorData}
+      />
+
+      <CafeQuickOrderModal
+        isOpen={cafeModalOpen}
+        onClose={() => setCafeModalOpen(false)}
+        onOrderCreated={loadFloorData}
+      />
 
       {/* Delete / Void Session Confirmation Modal */}
       {deleteConfirmTable && (

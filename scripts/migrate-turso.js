@@ -48,6 +48,7 @@ async function migrate() {
       min_fee REAL NOT NULL DEFAULT 50.00,
       current_player TEXT,
       current_phone TEXT,
+      game_type TEXT,
       session_started_at TEXT,
       scheduled_end_at TEXT,
       duration_choice TEXT,
@@ -61,7 +62,7 @@ async function migrate() {
   await client.execute(`
     CREATE TABLE IF NOT EXISTS table_pricing (
       id TEXT PRIMARY KEY,
-      category TEXT NOT NULL UNIQUE CHECK (category IN ('Royal', 'Snooker', 'Pool')),
+      category TEXT NOT NULL UNIQUE,
       rate_30m REAL NOT NULL,
       rate_60m REAL NOT NULL,
       updated_by TEXT DEFAULT 'owner',

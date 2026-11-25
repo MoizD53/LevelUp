@@ -1,6 +1,8 @@
 export type TableKind = "Royal" | "Snooker" | "Pool";
 export type TableStatus = "available" | "playing" | "paused" | "maintenance";
 export type UserRole = "staff" | "owner";
+export type SnookerGameType = "RD" | "Shuffle";
+export type PricingCategory = TableKind | "Snooker_RD" | "Snooker_Shuffle" | string;
 
 export interface ClubTable {
   id: string;
@@ -12,6 +14,7 @@ export interface ClubTable {
   min_fee?: number;
   player?: string;
   phone?: string;
+  game_type?: SnookerGameType | string;
   session_started_at?: string;
   elapsed?: string;
   bill?: number;
@@ -26,7 +29,7 @@ export interface ClubTable {
 
 export interface TablePricing {
   id: string;
-  category: TableKind;
+  category: PricingCategory;
   rate_30m: number;
   rate_60m: number;
   updated_by?: string;
@@ -58,9 +61,11 @@ export interface SessionRow {
   id: string;
   table_id: string;
   table: string;
-  table_kind?: TableKind;
+  table_kind?: TableKind | "Cafe" | string;
+  game_type?: SnookerGameType | string;
   player: string;
   phone?: string;
+  notes?: string;
   hourly_rate: number;
   rate_snapshot?: number;
   started_at: string;
@@ -165,4 +170,22 @@ export interface StaffStats {
   sessionsCompleted: number;
   collectionsRecorded: number;
   outstandingPayments: number;
+}
+
+export interface UdharDebtor {
+  customerName: string;
+  customerPhone?: string;
+  totalUdhar: number;
+  lastDate: string;
+  sessionCount: number;
+  sessions: {
+    sessionId: string;
+    table: string;
+    tableKind?: TableKind | "Cafe" | string;
+    gameType?: string;
+    startedAt: string;
+    amount: number;
+    udharAmount: number;
+    notes?: string;
+  }[];
 }

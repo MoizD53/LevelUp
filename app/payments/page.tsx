@@ -21,6 +21,7 @@ export default function PaymentsPage() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [tabFilter, setTabFilter] = useState<"all" | "udhar" | "settled">("all");
   const [settlingSession, setSettlingSession] = useState<SessionRow | null>(null);
   const [settleMethod, setSettleMethod] = useState<"cash" | "upi">("cash");
   const [settleAmount, setSettleAmount] = useState<string>("");
@@ -79,6 +80,10 @@ export default function PaymentsPage() {
   // Filtered Payments / Udhar list
   const filteredList = useMemo(() => {
     return sessions.filter((s) => {
+      const isUdhar = !s.paid || s.payment_status !== "Paid" || (s.udhar_amount && s.udhar_amount > 0);
+      if (tabFilter === "udhar" && !isUdhar) return false;
+      if (tabFilter === "settled" && isUdhar) return false;
+
       if (search.trim()) {
         const q = search.toLowerCase().trim();
         const matchesPlayer = s.player.toLowerCase().includes(q);
@@ -88,7 +93,7 @@ export default function PaymentsPage() {
       }
       return true;
     });
-  }, [sessions, search]);
+  }, [sessions, search, tabFilter]);
 
   const handleSettleSubmit = async () => {
     if (!settlingSession) return;
@@ -176,11 +181,65 @@ export default function PaymentsPage() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12,
           }}
         >
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>
-            Settlement &amp; Collections Stream
-          </h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+              Settlement &amp; Collections Stream
+            </h2>
+            <div style={{ display: "flex", gap: 4, background: "var(--bg-surface-inset)", padding: 2, borderRadius: "var(--r-xs)", border: "1px solid var(--border-subtle)" }}>
+              <button
+                type="button"
+                onClick={() => setTabFilter("all")}
+                style={{
+                  all: "unset",
+                  padding: "4px 10px",
+                  fontSize: 11.5,
+                  borderRadius: "var(--r-xs)",
+                  cursor: "pointer",
+                  fontWeight: tabFilter === "all" ? 700 : 500,
+                  color: tabFilter === "all" ? "var(--text-primary)" : "var(--text-muted)",
+                  background: tabFilter === "all" ? "var(--bg-surface-raised)" : "transparent",
+                }}
+              >
+                All ({sessions.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTabFilter("udhar")}
+                style={{
+                  all: "unset",
+                  padding: "4px 10px",
+                  fontSize: 11.5,
+                  borderRadius: "var(--r-xs)",
+                  cursor: "pointer",
+                  fontWeight: tabFilter === "udhar" ? 700 : 600,
+                  color: tabFilter === "udhar" ? "#000" : "var(--amber)",
+                  background: tabFilter === "udhar" ? "var(--amber)" : "rgba(245, 158, 11, 0.12)",
+                }}
+              >
+                ⚠️ Udhar Khata ({sessions.filter((s) => !s.paid || s.payment_status !== "Paid" || (s.udhar_amount && s.udhar_amount > 0)).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTabFilter("settled")}
+                style={{
+                  all: "unset",
+                  padding: "4px 10px",
+                  fontSize: 11.5,
+                  borderRadius: "var(--r-xs)",
+                  cursor: "pointer",
+                  fontWeight: tabFilter === "settled" ? 700 : 500,
+                  color: tabFilter === "settled" ? "var(--accent-primary)" : "var(--text-muted)",
+                  background: tabFilter === "settled" ? "rgba(0, 199, 138, 0.15)" : "transparent",
+                }}
+              >
+                Settled ({sessions.filter((s) => s.paid && s.payment_status === "Paid" && (!s.udhar_amount || s.udhar_amount <= 0)).length})
+              </button>
+            </div>
+          </div>
 
           <div style={{ position: "relative", minWidth: 200 }}>
             <Search
@@ -227,7 +286,7 @@ export default function PaymentsPage() {
                     {s.phone && <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{s.phone}</div>}
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)" }}>
-                    {s.table}
+                    {s.table_kind === "Cafe" ? "Counter (Drinks & Cigg)" : s.table} {s.game_type ? `(${s.game_type})` : ""}
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
                     {new Date(s.started_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
