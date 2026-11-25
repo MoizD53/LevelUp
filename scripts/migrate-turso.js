@@ -1,9 +1,38 @@
+const fs = require('fs');
+const path = require('path');
 const { createClient } = require('@libsql/client');
 
+function loadEnv() {
+  const envPath = path.resolve(__dirname, '../.env.local');
+  const env = { ...process.env };
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        let value = (match[2] || '').trim();
+        value = value.replace(/^['"](.*)['"]$/, '$1');
+        env[match[1]] = value;
+      }
+    }
+  }
+  return env;
+}
+
+const env = loadEnv();
+const url = env.TURSO_DATABASE_URL || env.NEXT_PUBLIC_TURSO_DATABASE_URL;
+const authToken = env.TURSO_AUTH_TOKEN || env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
+
+if (!url || !authToken) {
+  console.error('Error: TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be configured in .env.local');
+  process.exit(1);
+}
+
 const client = createClient({
-  url: 'libsql://levelup-duokarma.aws-ap-south-1.turso.io',
-  authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTI3MzI2MjYsImlkIjoiMDFhMTY3MzAtYmEwMS03YTlmLWExNDItYjg3NWI3N2JiMDM2Iiwia2lkIjoiU3U0NU9Ibmh4Y3lLTVF6RFphcWNJOGNiRVNyNFFYVmt1d2V5a3VnUWpPdyIsInJpZCI6IjQwYjc1NGU4LTYxYzAtNGVlMC05NGE0LTllZmJmMzQzMjg5NSJ9.TLGvtl1n1OSX81WXhu0MjMoW6jv9Xw9baG66yusOs08G7xNDTwzZ5VMGyHpeyQQnMpLAT9isUsTlP-Vk50njCg'
+  url,
+  authToken
 });
+
 
 async function migrate() {
   console.log('Migrating Turso database schema for Level Up...');
@@ -20,6 +49,9 @@ async function migrate() {
       current_player TEXT,
       current_phone TEXT,
       session_started_at TEXT,
+      scheduled_end_at TEXT,
+      duration_choice TEXT,
+      current_session_id TEXT,
       notes TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
@@ -63,6 +95,8 @@ async function migrate() {
       rate_snapshot REAL DEFAULT 350.0,
       started_at TEXT NOT NULL DEFAULT (datetime('now')),
       ended_at TEXT,
+      scheduled_end_at TEXT,
+      duration_choice TEXT,
       duration_minutes INTEGER DEFAULT 0,
       table_amount REAL NOT NULL DEFAULT 0.00,
       items_amount REAL NOT NULL DEFAULT 0.00,
@@ -73,6 +107,10 @@ async function migrate() {
       paid INTEGER NOT NULL DEFAULT 0,
       payment_status TEXT DEFAULT 'Unpaid' CHECK (payment_status IN ('Unpaid', 'Partially Paid', 'Paid')),
       payment_method TEXT CHECK (payment_method IN ('cash', 'upi', 'card', 'split', 'udhar')),
+      cash_paid REAL DEFAULT 0,
+      upi_paid REAL DEFAULT 0,
+      udhar_amount REAL DEFAULT 0,
+      upi_reference TEXT,
       created_by TEXT DEFAULT 'staff',
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))

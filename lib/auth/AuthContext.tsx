@@ -54,10 +54,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const username = (usernameInput || "").trim().toLowerCase();
     const password = (passwordInput || "").trim();
 
-    // Check Manager Credentials
-    if (username === "manager" && password === "manager@123") {
+    // Check Manager Credentials (ID: Manager, Pass: 123@Manager)
+    if (
+      (username === "manager" || username === "staff") &&
+      (password === "123@Manager" || password === "123@manager" || password === "manager@123")
+    ) {
       const sessionUser: AuthUser = {
-        username: "manager",
+        username: "Manager",
         role: "staff",
         title: "Manager",
       };
@@ -66,10 +69,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: true };
     }
 
-    // Check Owner Credentials
-    if (username === "owner" && password === "owner@123") {
+    // Check Owner Credentials (ID: Owner, Pass: Owner@123)
+    if (
+      username === "owner" &&
+      (password === "Owner@123" || password === "owner@123")
+    ) {
       const sessionUser: AuthUser = {
-        username: "owner",
+        username: "Owner",
         role: "owner",
         title: "Owner",
       };

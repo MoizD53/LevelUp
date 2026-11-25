@@ -2,11 +2,13 @@ import { createClient } from "@libsql/client/web";
 
 const TURSO_URL =
   process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ||
-  "libsql://levelup-duokarma.aws-ap-south-1.turso.io";
+  process.env.TURSO_DATABASE_URL ||
+  "libsql://levelup-moizd.aws-ap-south-1.turso.io";
 
 const TURSO_AUTH_TOKEN =
   process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN ||
-  "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTI3MzI2MjYsImlkIjoiMDFhMTY3MzAtYmEwMS03YTlmLWExNDItYjg3NWI3N2JiMDM2Iiwia2lkIjoiU3U0NU9Ibmh4Y3lLTVF6RFphcWNJOGNiRVNyNFFYVmt1d2V5a3VnUWpPdyIsInJpZCI6IjQwYjc1NGU4LTYxYzAtNGVlMC05NGE0LTllZmJmMzQzMjg5NSJ9.TLGvtl1n1OSX81WXhu0MjMoW6jv9Xw9baG66yusOs08G7xNDTwzZ5VMGyHpeyQQnMpLAT9isUsTlP-Vk50njCg";
+  process.env.TURSO_AUTH_TOKEN ||
+  "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTU2MTE0MDIsImlkIjoiMDFhMjEyYzctNWMwMS03NjBmLWFlMWYtNTk2ZjBmYzQyMThiIiwia2lkIjoieWxOWFFLUTIzaE1Cc0xLZ2pUMHZpN2UtQ2N5akp5d01LWEdabmsxMkNkTSIsInJpZCI6ImRkN2ZlYWQ4LTY2NzQtNDU1Ni1iNWM1LTFhYTI4YTU5ZDhlMyJ9.XzN_w97qPOsyiRjkTpdNq5_q3_xoGXd4IZWnkTiJ-J0V-v5iQJm4VOjYjgUIyYhETl9Bk1MbUSsiNUSS3QooCg";
 
 let clientInstance: ReturnType<typeof createClient> | null = null;
 
