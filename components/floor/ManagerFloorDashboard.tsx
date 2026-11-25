@@ -56,7 +56,7 @@ export function ManagerFloorDashboard() {
 
   // Modals state
   const [startModalTable, setStartModalTable] = useState<ClubTable | null>(null);
-  const [startModalGameType, setStartModalGameType] = useState<"RD" | "Shuffle" | undefined>(undefined);
+  const [startModalGameType, setStartModalGameType] = useState<"Standard" | "RD" | "Shuffle" | undefined>(undefined);
   const [manageModalTable, setManageModalTable] = useState<ClubTable | null>(null);
   const [udharModalOpen, setUdharModalOpen] = useState(false);
   const [cafeModalOpen, setCafeModalOpen] = useState(false);

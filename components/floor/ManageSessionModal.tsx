@@ -106,22 +106,30 @@ export function ManageSessionModal({
   }, [isTimeUp]);
 
   // Active pricing for extensions
+  const isRoyal = table.kind === "Royal";
   const isSnooker = table.kind === "Snooker";
-  const snookerRDRates = pricingList.find((p) => p.category === "Snooker_RD") || pricingList.find((p) => p.category === "Snooker") || {
-    rate_30m: 200,
-    rate_60m: 350,
-  };
-  const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || {
-    rate_30m: 250,
-    rate_60m: 400,
-  };
 
-  const pricing = isSnooker
-    ? (table.game_type === "Shuffle" ? snookerShuffleRates : snookerRDRates)
-    : (pricingList.find((p) => p.category === table.kind) || {
-        rate_30m: table.kind === "Royal" ? 300 : 150,
-        rate_60m: table.kind === "Royal" ? 500 : 250,
-      });
+  // Royal specific rates
+  const royalStdRates = pricingList.find((p) => p.category === "Royal") || { rate_30m: 300, rate_60m: 500 };
+  const royalRDRates = pricingList.find((p) => p.category === "Royal_RD") || royalStdRates;
+  const royalShuffleRates = pricingList.find((p) => p.category === "Royal_Shuffle") || { rate_30m: 350, rate_60m: 600 };
+
+  // Snooker specific rates
+  const snookerStdRates = pricingList.find((p) => p.category === "Snooker") || { rate_30m: 200, rate_60m: 350 };
+  const snookerRDRates = pricingList.find((p) => p.category === "Snooker_RD") || snookerStdRates;
+  const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || { rate_30m: 250, rate_60m: 400 };
+
+  // Pool rates
+  const poolRates = pricingList.find((p) => p.category === "Pool") || { rate_30m: 150, rate_60m: 250 };
+
+  let pricing: { rate_30m: number; rate_60m: number };
+  if (isRoyal) {
+    pricing = table.game_type === "Shuffle" ? royalShuffleRates : (table.game_type === "RD" ? royalRDRates : royalStdRates);
+  } else if (isSnooker) {
+    pricing = table.game_type === "Shuffle" ? snookerShuffleRates : (table.game_type === "RD" ? snookerRDRates : snookerStdRates);
+  } else {
+    pricing = poolRates;
+  }
 
   // Calculate bill components
   const baseTableFee = table.bill || (table.duration_choice === "1h" ? pricing.rate_60m : pricing.rate_30m);
@@ -421,7 +429,7 @@ export function ManageSessionModal({
               <span>{table.player || "Walk-in Match"}</span>
             </div>
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-              Booked: {table.duration_choice || "30m"}{isSnooker && table.game_type ? ` · ${table.game_type}` : ""} · Bill: ₹{totalBill}
+              Booked: {table.duration_choice || "30m"}{table.game_type ? ` · ${table.game_type}` : ""} · Bill: ₹{totalBill}
             </div>
           </div>
 

@@ -1,8 +1,17 @@
 export type TableKind = "Royal" | "Snooker" | "Pool";
 export type TableStatus = "available" | "playing" | "paused" | "maintenance";
 export type UserRole = "staff" | "owner";
-export type SnookerGameType = "RD" | "Shuffle";
-export type PricingCategory = TableKind | "Snooker_RD" | "Snooker_Shuffle" | string;
+export type CuesportGameType = "Standard" | "RD" | "Shuffle";
+export type SnookerGameType = CuesportGameType;
+export type PricingCategory =
+  | "Royal"
+  | "Royal_RD"
+  | "Royal_Shuffle"
+  | "Snooker"
+  | "Snooker_RD"
+  | "Snooker_Shuffle"
+  | "Pool"
+  | string;
 
 export interface ClubTable {
   id: string;
@@ -14,7 +23,7 @@ export interface ClubTable {
   min_fee?: number;
   player?: string;
   phone?: string;
-  game_type?: SnookerGameType | string;
+  game_type?: CuesportGameType | string;
   session_started_at?: string;
   elapsed?: string;
   bill?: number;

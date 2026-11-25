@@ -18,7 +18,7 @@ interface FloorTableCardProps {
   rate30m?: number;
   rate60m?: number;
   pricingList?: TablePricing[];
-  onStartSession: (table: ClubTable, gameType?: "RD" | "Shuffle") => void;
+  onStartSession: (table: ClubTable, gameType?: "Standard" | "RD" | "Shuffle") => void;
   onManageSession: (table: ClubTable) => void;
   onQuickAddItems?: (table: ClubTable) => void;
 }
@@ -91,8 +91,18 @@ export function FloorTableCard({
     [184, 94],
   ];
 
+  const isRoyal = table.kind === "Royal";
   const isSnooker = table.kind === "Snooker";
-  const snookerRDRates = pricingList.find((p) => p.category === "Snooker_RD") || { rate_30m: 200, rate_60m: 350 };
+  const hasGameCategories = isRoyal || isSnooker;
+
+  // Royal specific rates
+  const royalStdRates = pricingList.find((p) => p.category === "Royal") || { rate_30m: 300, rate_60m: 500 };
+  const royalRDRates = pricingList.find((p) => p.category === "Royal_RD") || royalStdRates;
+  const royalShuffleRates = pricingList.find((p) => p.category === "Royal_Shuffle") || { rate_30m: 350, rate_60m: 600 };
+
+  // Snooker specific rates
+  const snookerStdRates = pricingList.find((p) => p.category === "Snooker") || { rate_30m: 200, rate_60m: 350 };
+  const snookerRDRates = pricingList.find((p) => p.category === "Snooker_RD") || snookerStdRates;
   const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || { rate_30m: 250, rate_60m: 400 };
 
   // Booked duration calculation
@@ -143,16 +153,31 @@ export function FloorTableCard({
               >
                 {table.kind}
               </span>
-              {isSnooker && table.game_type && (
+              {hasGameCategories && table.game_type && (
                 <span
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
                     padding: "2px 7px",
                     borderRadius: "var(--r-xs)",
-                    background: table.game_type === "Shuffle" ? "rgba(59, 130, 246, 0.2)" : "rgba(16, 185, 129, 0.2)",
-                    border: table.game_type === "Shuffle" ? "1px solid rgba(59, 130, 246, 0.4)" : "1px solid rgba(16, 185, 129, 0.4)",
-                    color: table.game_type === "Shuffle" ? "#60A5FA" : "var(--accent-primary)",
+                    background:
+                      table.game_type === "Shuffle"
+                        ? "rgba(59, 130, 246, 0.2)"
+                        : table.game_type === "RD"
+                        ? "rgba(16, 185, 129, 0.2)"
+                        : "rgba(168, 85, 247, 0.2)",
+                    border:
+                      table.game_type === "Shuffle"
+                        ? "1px solid rgba(59, 130, 246, 0.4)"
+                        : table.game_type === "RD"
+                        ? "1px solid rgba(16, 185, 129, 0.4)"
+                        : "1px solid rgba(168, 85, 247, 0.4)",
+                    color:
+                      table.game_type === "Shuffle"
+                        ? "#60A5FA"
+                        : table.game_type === "RD"
+                        ? "var(--accent-primary)"
+                        : "#C084FC",
                   }}
                 >
                   {table.game_type}
@@ -162,8 +187,10 @@ export function FloorTableCard({
 
             {/* 2. Rates beneath title */}
             <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 4, fontFamily: "var(--font-mono)" }}>
-              {isSnooker ? (
-                <>RD: ₹{snookerRDRates.rate_30m}/30m · Shuffle: ₹{snookerShuffleRates.rate_30m}/30m</>
+              {isRoyal ? (
+                <>Std: ₹{royalStdRates.rate_30m} · RD: ₹{royalRDRates.rate_30m} · Safal: ₹{royalShuffleRates.rate_30m}</>
+              ) : isSnooker ? (
+                <>Std: ₹{snookerStdRates.rate_30m} · RD: ₹{snookerRDRates.rate_30m} · Safal: ₹{snookerShuffleRates.rate_30m}</>
               ) : (
                 <>₹{rate30m}/{table.kind === "Pool" ? "2m" : "30m"} · ₹{rate60m}/1h</>
               )}
@@ -520,39 +547,64 @@ export function FloorTableCard({
             {isTimeUp ? <AlertTriangle size={15} /> : <Sliders size={14} />}
             <span>{isTimeUp ? "Time Up — Collect Payment & Settle" : "Manage Session"}</span>
           </button>
-        ) : isSnooker ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        ) : hasGameCategories ? (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            {/* Standard Button */}
+            <button
+              type="button"
+              onClick={() => onStartSession(table, "Standard")}
+              className="btn"
+              style={{
+                height: 38,
+                fontSize: 11.5,
+                fontWeight: 700,
+                gap: 4,
+                padding: "0 6px",
+                background: "rgba(168, 85, 247, 0.14)",
+                border: "1px solid rgba(168, 85, 247, 0.4)",
+                color: "#C084FC",
+              }}
+            >
+              <Play size={10} fill="currentColor" />
+              <span>{isRoyal ? "Royal" : "Snooker"}</span>
+            </button>
+
+            {/* RD Button */}
             <button
               type="button"
               onClick={() => onStartSession(table, "RD")}
               className="btn btn-primary"
               style={{
                 height: 38,
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: 700,
-                gap: 5,
+                gap: 4,
+                padding: "0 6px",
                 background: "linear-gradient(180deg, #00C78A 0%, #009E6D 100%)",
               }}
             >
-              <Play size={12} fill="currentColor" />
-              <span>Start RD</span>
+              <Play size={10} fill="currentColor" />
+              <span>RD</span>
             </button>
+
+            {/* Shuffle (Safal) Button */}
             <button
               type="button"
               onClick={() => onStartSession(table, "Shuffle")}
               className="btn"
               style={{
                 height: 38,
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: 700,
-                gap: 5,
+                gap: 4,
+                padding: "0 6px",
                 background: "rgba(59, 130, 246, 0.16)",
                 border: "1px solid rgba(59, 130, 246, 0.4)",
                 color: "#60A5FA",
               }}
             >
-              <Play size={12} fill="currentColor" />
-              <span>Start Shuffle</span>
+              <Play size={10} fill="currentColor" />
+              <span>Shuffle</span>
             </button>
           </div>
         ) : (

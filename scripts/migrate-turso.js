@@ -179,22 +179,25 @@ async function migrate() {
     });
   }
 
-  // Seed default pricing
-  await client.execute(`
-    INSERT INTO table_pricing (id, category, rate_30m, rate_60m, updated_by)
-    VALUES ('price_royal', 'Royal', 300, 500, 'owner')
-    ON CONFLICT (category) DO NOTHING;
-  `);
-  await client.execute(`
-    INSERT INTO table_pricing (id, category, rate_30m, rate_60m, updated_by)
-    VALUES ('price_snooker', 'Snooker', 200, 350, 'owner')
-    ON CONFLICT (category) DO NOTHING;
-  `);
-  await client.execute(`
-    INSERT INTO table_pricing (id, category, rate_30m, rate_60m, updated_by)
-    VALUES ('price_pool', 'Pool', 150, 250, 'owner')
-    ON CONFLICT (category) DO NOTHING;
-  `);
+  // Seed default pricing (Royal 3 categories, Snooker 3 categories, Pool 1 category)
+  const defaultPricing = [
+    { id: 'price_royal', category: 'Royal', rate_30m: 300, rate_60m: 500 },
+    { id: 'price_royal_rd', category: 'Royal_RD', rate_30m: 300, rate_60m: 500 },
+    { id: 'price_royal_shuffle', category: 'Royal_Shuffle', rate_30m: 350, rate_60m: 600 },
+    { id: 'price_snooker', category: 'Snooker', rate_30m: 200, rate_60m: 350 },
+    { id: 'price_snooker_rd', category: 'Snooker_RD', rate_30m: 200, rate_60m: 350 },
+    { id: 'price_snooker_shuffle', category: 'Snooker_Shuffle', rate_30m: 250, rate_60m: 400 },
+    { id: 'price_pool', category: 'Pool', rate_30m: 150, rate_60m: 250 },
+  ];
+
+  for (const p of defaultPricing) {
+    await client.execute({
+      sql: `INSERT INTO table_pricing (id, category, rate_30m, rate_60m, updated_by)
+            VALUES (?, ?, ?, ?, 'owner')
+            ON CONFLICT (category) DO NOTHING;`,
+      args: [p.id, p.category, p.rate_30m, p.rate_60m]
+    });
+  }
 
   // Seed products
   const products = [

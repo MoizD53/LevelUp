@@ -418,9 +418,11 @@ export async function getTablePricing(): Promise<TablePricing[]> {
     if (!res.rows || res.rows.length === 0) {
       return [
         { id: "price_royal", category: "Royal", rate_30m: 300, rate_60m: 500 },
+        { id: "price_royal_rd", category: "Royal_RD", rate_30m: 300, rate_60m: 500 },
+        { id: "price_royal_shuffle", category: "Royal_Shuffle", rate_30m: 350, rate_60m: 600 },
+        { id: "price_snooker", category: "Snooker", rate_30m: 200, rate_60m: 350 },
         { id: "price_snooker_rd", category: "Snooker_RD", rate_30m: 200, rate_60m: 350 },
         { id: "price_snooker_shuffle", category: "Snooker_Shuffle", rate_30m: 250, rate_60m: 400 },
-        { id: "price_snooker", category: "Snooker", rate_30m: 200, rate_60m: 350 },
         { id: "price_pool", category: "Pool", rate_30m: 150, rate_60m: 250 },
       ];
     }
@@ -433,12 +435,52 @@ export async function getTablePricing(): Promise<TablePricing[]> {
       updated_at: r.updated_at ? String(r.updated_at) : undefined,
     }));
 
-    // Ensure Snooker_RD and Snooker_Shuffle exist if only legacy 'Snooker' was present
-    const hasRD = pricingList.some((p) => p.category === "Snooker_RD");
-    const hasShuffle = pricingList.some((p) => p.category === "Snooker_Shuffle");
-    const snookerLegacy = pricingList.find((p) => p.category === "Snooker");
+    // Ensure Royal 3 categories exist
+    const royalLegacy = pricingList.find((p) => p.category === "Royal");
+    if (!pricingList.some((p) => p.category === "Royal")) {
+      pricingList.push({
+        id: "price_royal",
+        category: "Royal",
+        rate_30m: 300,
+        rate_60m: 500,
+        updated_by: "owner",
+        updated_at: undefined,
+      });
+    }
+    if (!pricingList.some((p) => p.category === "Royal_RD")) {
+      pricingList.push({
+        id: "price_royal_rd",
+        category: "Royal_RD",
+        rate_30m: royalLegacy ? royalLegacy.rate_30m : 300,
+        rate_60m: royalLegacy ? royalLegacy.rate_60m : 500,
+        updated_by: "owner",
+        updated_at: undefined,
+      });
+    }
+    if (!pricingList.some((p) => p.category === "Royal_Shuffle")) {
+      pricingList.push({
+        id: "price_royal_shuffle",
+        category: "Royal_Shuffle",
+        rate_30m: royalLegacy ? Math.round(royalLegacy.rate_30m * 1.15) : 350,
+        rate_60m: royalLegacy ? Math.round(royalLegacy.rate_60m * 1.2) : 600,
+        updated_by: "owner",
+        updated_at: undefined,
+      });
+    }
 
-    if (!hasRD) {
+    // Ensure Snooker 3 categories exist
+    const snookerLegacy = pricingList.find((p) => p.category === "Snooker");
+    if (!pricingList.some((p) => p.category === "Snooker")) {
+      pricingList.push({
+        id: "price_snooker",
+        category: "Snooker",
+        rate_30m: 200,
+        rate_60m: 350,
+        updated_by: "owner",
+        updated_at: undefined,
+      });
+    }
+    if (!pricingList.some((p) => p.category === "Snooker_RD")) {
       pricingList.push({
         id: "price_snooker_rd",
         category: "Snooker_RD",
@@ -448,12 +490,24 @@ export async function getTablePricing(): Promise<TablePricing[]> {
         updated_at: undefined,
       });
     }
-    if (!hasShuffle) {
+    if (!pricingList.some((p) => p.category === "Snooker_Shuffle")) {
       pricingList.push({
         id: "price_snooker_shuffle",
         category: "Snooker_Shuffle",
         rate_30m: snookerLegacy ? Math.round(snookerLegacy.rate_30m * 1.25) : 250,
         rate_60m: snookerLegacy ? Math.round(snookerLegacy.rate_60m * 1.15) : 400,
+        updated_by: "owner",
+        updated_at: undefined,
+      });
+    }
+
+    // Ensure Pool exists
+    if (!pricingList.some((p) => p.category === "Pool")) {
+      pricingList.push({
+        id: "price_pool",
+        category: "Pool",
+        rate_30m: 150,
+        rate_60m: 250,
         updated_by: "owner",
         updated_at: undefined,
       });
@@ -492,14 +546,19 @@ export async function updateTablePricing(
     });
 
     // Also update current active tables default hourly rate
-    if (category === "Royal" || category === "Snooker" || category === "Pool") {
+    if (category === "Royal") {
       await client.execute({
-        sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = ?`,
-        args: [rate_60m, category],
+        sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = 'Royal'`,
+        args: [rate_60m],
       });
-    } else if (category === "Snooker_RD" || category === "Snooker_Shuffle") {
+    } else if (category === "Snooker") {
       await client.execute({
         sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = 'Snooker'`,
+        args: [rate_60m],
+      });
+    } else if (category === "Pool") {
+      await client.execute({
+        sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = 'Pool'`,
         args: [rate_60m],
       });
     }
@@ -567,14 +626,19 @@ export async function saveAllTablePricing(
       });
 
       // Update club_tables fleet baseline hourly rate for that category
-      if (r.category === "Royal" || r.category === "Snooker" || r.category === "Pool") {
+      if (r.category === "Royal") {
         await client.execute({
-          sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = ?`,
-          args: [r.rate_60m, r.category],
+          sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = 'Royal'`,
+          args: [r.rate_60m],
         });
-      } else if (r.category === "Snooker_RD" || r.category === "Snooker_Shuffle") {
+      } else if (r.category === "Snooker") {
         await client.execute({
           sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = 'Snooker'`,
+          args: [r.rate_60m],
+        });
+      } else if (r.category === "Pool") {
+        await client.execute({
+          sql: `UPDATE club_tables SET hourly_rate = ?, updated_at = datetime('now') WHERE kind = 'Pool'`,
           args: [r.rate_60m],
         });
       }

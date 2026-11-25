@@ -20,7 +20,7 @@ import {
 interface StartSessionModalProps {
   table: ClubTable | null;
   pricingList?: TablePricing[];
-  initialGameType?: "RD" | "Shuffle";
+  initialGameType?: "Standard" | "RD" | "Shuffle";
   onClose: () => void;
   onSessionStarted: () => void;
 }
@@ -37,7 +37,7 @@ export function StartSessionModal({
   const [phone, setPhone] = useState("");
   const [playerCount, setPlayerCount] = useState<number>(2);
   const [durationChoice, setDurationChoice] = useState<"30m" | "1h">("30m");
-  const [gameType, setGameType] = useState<"RD" | "Shuffle">(initialGameType || "RD");
+  const [gameType, setGameType] = useState<"Standard" | "RD" | "Shuffle">(initialGameType || "Standard");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -46,7 +46,7 @@ export function StartSessionModal({
     if (initialGameType) {
       setGameType(initialGameType);
     } else {
-      setGameType("RD");
+      setGameType("Standard");
     }
   }, [initialGameType, table?.id]);
 
@@ -73,26 +73,38 @@ export function StartSessionModal({
 
   if (!table) return null;
 
+  const isRoyal = table.kind === "Royal";
   const isSnooker = table.kind === "Snooker";
+  const hasGameCategories = isRoyal || isSnooker; // Sab me 3 categories hai, Khali pool chodke
 
-  // Snooker specific pricing for RD and Shuffle
-  const snookerRDRates = livePricing.find((p) => p.category === "Snooker_RD") || livePricing.find((p) => p.category === "Snooker") || {
-    rate_30m: 200,
-    rate_60m: 350,
+  // Royal specific pricing for 3 categories
+  const royalStandardRates = livePricing.find((p) => p.category === "Royal") || { rate_30m: 300, rate_60m: 500 };
+  const royalRDRates = livePricing.find((p) => p.category === "Royal_RD") || royalStandardRates;
+  const royalShuffleRates = livePricing.find((p) => p.category === "Royal_Shuffle") || {
+    rate_30m: Math.round(royalStandardRates.rate_30m * 1.15),
+    rate_60m: Math.round(royalStandardRates.rate_60m * 1.2),
   };
 
+  // Snooker specific pricing for 3 categories
+  const snookerStandardRates = livePricing.find((p) => p.category === "Snooker") || { rate_30m: 200, rate_60m: 350 };
+  const snookerRDRates = livePricing.find((p) => p.category === "Snooker_RD") || snookerStandardRates;
   const snookerShuffleRates = livePricing.find((p) => p.category === "Snooker_Shuffle") || {
-    rate_30m: Math.round(snookerRDRates.rate_30m * 1.25),
-    rate_60m: Math.round(snookerRDRates.rate_60m * 1.15),
+    rate_30m: Math.round(snookerStandardRates.rate_30m * 1.25),
+    rate_60m: Math.round(snookerStandardRates.rate_60m * 1.15),
   };
+
+  // Pool pricing (single category: Khali pool chodke)
+  const poolRates = livePricing.find((p) => p.category === "Pool") || { rate_30m: 150, rate_60m: 250 };
 
   // Active pricing for this match
-  const pricing = isSnooker
-    ? (gameType === "RD" ? snookerRDRates : snookerShuffleRates)
-    : (livePricing.find((p) => p.category === table.kind) || {
-        rate_30m: table.kind === "Royal" ? 300 : 150,
-        rate_60m: table.kind === "Royal" ? 500 : 250,
-      });
+  let pricing: { rate_30m: number; rate_60m: number };
+  if (isRoyal) {
+    pricing = gameType === "Shuffle" ? royalShuffleRates : (gameType === "RD" ? royalRDRates : royalStandardRates);
+  } else if (isSnooker) {
+    pricing = gameType === "Shuffle" ? snookerShuffleRates : (gameType === "RD" ? snookerRDRates : snookerStandardRates);
+  } else {
+    pricing = poolRates;
+  }
 
   const currentPrice = durationChoice === "30m" ? pricing.rate_30m : pricing.rate_60m;
 
@@ -115,7 +127,7 @@ export function StartSessionModal({
       tableId: table.id,
       tableName: table.name,
       tableKind: table.kind,
-      gameType: isSnooker ? gameType : undefined,
+      gameType: hasGameCategories ? gameType : undefined,
       playerName: playerName.trim(),
       phone: phone.trim() || undefined,
       durationChoice,
@@ -305,75 +317,124 @@ export function StartSessionModal({
             </div>
           </div>
 
-          {/* Snooker Game Mode Option (RD or Shuffle) */}
-          {isSnooker && (
+          {/* Game Mode Option (Standard, RD, or Shuffle) — "Sab me 3 categories hai, Khali pool chodke" */}
+          {hasGameCategories && (
             <div style={{ background: "var(--bg-surface-inset)", padding: 12, borderRadius: "var(--r-sm)", border: "1px solid var(--border-default)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <label style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  Select Snooker Game <span style={{ color: "var(--accent-primary)" }}>*</span>
+                  Select {table.kind} Game Mode <span style={{ color: "var(--accent-primary)" }}>*</span>
                 </label>
                 <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Different pricing applies</span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {/* 1. RD Option */}
-                <button
-                  type="button"
-                  onClick={() => setGameType("RD")}
-                  style={{
-                    all: "unset",
-                    padding: "12px 14px",
-                    borderRadius: "var(--r-xs)",
-                    background: gameType === "RD" ? "rgba(16, 185, 129, 0.14)" : "var(--bg-surface)",
-                    border: gameType === "RD" ? "2px solid var(--accent-primary)" : "1px solid var(--border-subtle)",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    gap: 6,
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--text-primary)" }}>1. RD</span>
-                      <span className="badge" style={{ fontSize: 9.5, padding: "1px 5px", background: "rgba(16, 185, 129, 0.2)", color: "var(--accent-primary)" }}>Standard</span>
-                    </div>
-                    {gameType === "RD" && <CheckCircle2 size={16} color="var(--accent-primary)" />}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                    ₹{snookerRDRates.rate_30m}/30m · ₹{snookerRDRates.rate_60m}/1h
-                  </div>
-                </button>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {/* 1. Standard Option */}
+                {(() => {
+                  const stdRates = isRoyal ? royalStandardRates : snookerStandardRates;
+                  const isSel = gameType === "Standard";
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setGameType("Standard")}
+                      style={{
+                        all: "unset",
+                        padding: "10px 10px",
+                        borderRadius: "var(--r-xs)",
+                        background: isSel ? "rgba(168, 85, 247, 0.14)" : "var(--bg-surface)",
+                        border: isSel ? "2px solid #A855F7" : "1px solid var(--border-subtle)",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: 4,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--text-primary)" }}>
+                            {isRoyal ? "Royal" : "Snooker"}
+                          </span>
+                        </div>
+                        {isSel && <CheckCircle2 size={14} color="#A855F7" />}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                        ₹{stdRates.rate_30m}/30m · ₹{stdRates.rate_60m}/1h
+                      </div>
+                    </button>
+                  );
+                })()}
 
-                {/* 2. Shuffle Option */}
-                <button
-                  type="button"
-                  onClick={() => setGameType("Shuffle")}
-                  style={{
-                    all: "unset",
-                    padding: "12px 14px",
-                    borderRadius: "var(--r-xs)",
-                    background: gameType === "Shuffle" ? "rgba(59, 130, 246, 0.14)" : "var(--bg-surface)",
-                    border: gameType === "Shuffle" ? "2px solid #60A5FA" : "1px solid var(--border-subtle)",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    gap: 6,
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--text-primary)" }}>2. Shuffle</span>
-                      <span className="badge" style={{ fontSize: 9.5, padding: "1px 5px", background: "rgba(59, 130, 246, 0.2)", color: "#60A5FA" }}>Custom</span>
-                    </div>
-                    {gameType === "Shuffle" && <CheckCircle2 size={16} color="#60A5FA" />}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                    ₹{snookerShuffleRates.rate_30m}/30m · ₹{snookerShuffleRates.rate_60m}/1h
-                  </div>
-                </button>
+                {/* 2. RD Option */}
+                {(() => {
+                  const rdRates = isRoyal ? royalRDRates : snookerRDRates;
+                  const isSel = gameType === "RD";
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setGameType("RD")}
+                      style={{
+                        all: "unset",
+                        padding: "10px 10px",
+                        borderRadius: "var(--r-xs)",
+                        background: isSel ? "rgba(16, 185, 129, 0.14)" : "var(--bg-surface)",
+                        border: isSel ? "2px solid var(--accent-primary)" : "1px solid var(--border-subtle)",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: 4,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--text-primary)" }}>RD</span>
+                          <span className="badge" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(16, 185, 129, 0.2)", color: "var(--accent-primary)" }}>Red</span>
+                        </div>
+                        {isSel && <CheckCircle2 size={14} color="var(--accent-primary)" />}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                        ₹{rdRates.rate_30m}/30m · ₹{rdRates.rate_60m}/1h
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* 3. Shuffle (Safal) Option */}
+                {(() => {
+                  const shuffleRates = isRoyal ? royalShuffleRates : snookerShuffleRates;
+                  const isSel = gameType === "Shuffle";
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setGameType("Shuffle")}
+                      style={{
+                        all: "unset",
+                        padding: "10px 10px",
+                        borderRadius: "var(--r-xs)",
+                        background: isSel ? "rgba(59, 130, 246, 0.14)" : "var(--bg-surface)",
+                        border: isSel ? "2px solid #60A5FA" : "1px solid var(--border-subtle)",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: 4,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--text-primary)" }}>Shuffle</span>
+                          <span className="badge" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(59, 130, 246, 0.2)", color: "#60A5FA" }}>Safal</span>
+                        </div>
+                        {isSel && <CheckCircle2 size={14} color="#60A5FA" />}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                        ₹{shuffleRates.rate_30m}/30m · ₹{shuffleRates.rate_60m}/1h
+                      </div>
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -461,10 +522,10 @@ export function StartSessionModal({
           >
             <div>
               <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
-                {isSnooker ? `Snooker (${gameType}) Tariff:` : "Starting Fee:"}
+                {hasGameCategories ? `${table.kind} (${gameType}) Tariff:` : "Starting Fee:"}
               </div>
               <div style={{ fontSize: 16, fontWeight: 800, color: "var(--accent-primary)", fontFamily: "var(--font-mono)" }}>
-                ₹{currentPrice} <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)" }}>({isSnooker ? `${gameType} · ` : ""}{durationChoice === "30m" ? (table.kind === "Pool" ? "2 mins" : "30 mins") : "1 hour"})</span>
+                ₹{currentPrice} <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)" }}>({hasGameCategories ? `${gameType} · ` : ""}{durationChoice === "30m" ? (table.kind === "Pool" ? "2 mins" : "30 mins") : "1 hour"})</span>
               </div>
             </div>
             <div style={{ textAlign: "right", fontSize: 11, color: "var(--text-muted)" }}>

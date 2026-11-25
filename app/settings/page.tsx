@@ -18,42 +18,71 @@ const CATEGORY_CONFIG: {
   badge?: string;
   description: string;
 }[] = [
+  // 1. Royal Tables (3 Categories)
   {
     categoryKey: "Royal",
-    name: "Royal Table",
+    name: "Royal — Standard",
     countLabel: "2 Tables",
-    badge: "VIP",
-    description: "VIP private cuesport tables with premium felt and private lounge",
+    badge: "VIP Standard",
+    description: "VIP private cuesport tables — standard match & frame tariffs",
+  },
+  {
+    categoryKey: "Royal_RD",
+    name: "Royal — RD",
+    countLabel: "2 Tables",
+    badge: "VIP RD",
+    description: "Royal table Red Ball game format tariffs",
+  },
+  {
+    categoryKey: "Royal_Shuffle",
+    name: "Royal — Shuffle",
+    countLabel: "2 Tables",
+    badge: "VIP Safal",
+    description: "Royal table Shuffle (Safal) format tariffs",
+  },
+
+  // 2. Snooker Tables (3 Categories)
+  {
+    categoryKey: "Snooker",
+    name: "Snooker — Standard",
+    countLabel: "2 Tables",
+    badge: "Standard",
+    description: "Standard Snooker match & frame tariffs",
   },
   {
     categoryKey: "Snooker_RD",
     name: "Snooker — RD",
     countLabel: "2 Tables",
-    badge: "Game 1",
+    badge: "RD",
     description: "Red Ball / Standard Snooker frame tariffs",
   },
   {
     categoryKey: "Snooker_Shuffle",
     name: "Snooker — Shuffle",
     countLabel: "2 Tables",
-    badge: "Game 2",
-    description: "Shuffle Snooker game format with custom match scoring",
+    badge: "Safal",
+    description: "Shuffle (Safal) Snooker game format with custom match scoring",
   },
+
+  // 3. Pool Table (Khali pool chodke — 1 Category)
   {
     categoryKey: "Pool",
     name: "Pool Table",
     countLabel: "1 Table",
-    badge: "9ft",
-    description: "Classic American 8-ball and 9-ball pool table",
+    badge: "9ft (Single)",
+    description: "Classic American 8-ball and 9-ball pool table (Khali pool chodke)",
   },
 ];
 
 export default function TablePricingSettingsPage() {
   const { user, isOwner } = useAuth();
 
-  // Pricing state across all categories including Snooker RD & Shuffle
+  // Pricing state across all categories (Royal 3, Snooker 3, Pool 1)
   const [rates, setRates] = useState<Record<string, PricingRowState>>({
     Royal: { rate_30m: 300, rate_60m: 500 },
+    Royal_RD: { rate_30m: 300, rate_60m: 500 },
+    Royal_Shuffle: { rate_30m: 350, rate_60m: 600 },
+    Snooker: { rate_30m: 200, rate_60m: 350 },
     Snooker_RD: { rate_30m: 200, rate_60m: 350 },
     Snooker_Shuffle: { rate_30m: 250, rate_60m: 400 },
     Pool: { rate_30m: 150, rate_60m: 250 },
@@ -61,6 +90,9 @@ export default function TablePricingSettingsPage() {
 
   const [initialRates, setInitialRates] = useState<Record<string, PricingRowState>>({
     Royal: { rate_30m: 300, rate_60m: 500 },
+    Royal_RD: { rate_30m: 300, rate_60m: 500 },
+    Royal_Shuffle: { rate_30m: 350, rate_60m: 600 },
+    Snooker: { rate_30m: 200, rate_60m: 350 },
     Snooker_RD: { rate_30m: 200, rate_60m: 350 },
     Snooker_Shuffle: { rate_30m: 250, rate_60m: 400 },
     Pool: { rate_30m: 150, rate_60m: 250 },
@@ -78,12 +110,13 @@ export default function TablePricingSettingsPage() {
       const pricingList = await getTablePricing();
       const loaded: Record<string, PricingRowState> = {
         Royal: { rate_30m: 300, rate_60m: 500 },
+        Royal_RD: { rate_30m: 300, rate_60m: 500 },
+        Royal_Shuffle: { rate_30m: 350, rate_60m: 600 },
+        Snooker: { rate_30m: 200, rate_60m: 350 },
         Snooker_RD: { rate_30m: 200, rate_60m: 350 },
         Snooker_Shuffle: { rate_30m: 250, rate_60m: 400 },
         Pool: { rate_30m: 150, rate_60m: 250 },
       };
-
-      const legacySnooker = pricingList.find((p) => p.category === "Snooker");
 
       pricingList.forEach((p) => {
         if (loaded[p.category]) {
@@ -94,14 +127,22 @@ export default function TablePricingSettingsPage() {
         }
       });
 
-      // Fallback for Snooker RD & Shuffle if not explicitly loaded
-      if (legacySnooker) {
-        if (!pricingList.some((p) => p.category === "Snooker_RD")) {
-          loaded.Snooker_RD = { rate_30m: legacySnooker.rate_30m, rate_60m: legacySnooker.rate_60m };
-        }
-        if (!pricingList.some((p) => p.category === "Snooker_Shuffle")) {
-          loaded.Snooker_Shuffle = { rate_30m: Math.round(legacySnooker.rate_30m * 1.25), rate_60m: Math.round(legacySnooker.rate_60m * 1.15) };
-        }
+      // Fallback for Royal variants if not yet individually populated
+      const royalBase = loaded.Royal;
+      if (!pricingList.some((p) => p.category === "Royal_RD")) {
+        loaded.Royal_RD = { rate_30m: royalBase.rate_30m, rate_60m: royalBase.rate_60m };
+      }
+      if (!pricingList.some((p) => p.category === "Royal_Shuffle")) {
+        loaded.Royal_Shuffle = { rate_30m: Math.round(royalBase.rate_30m * 1.15), rate_60m: Math.round(royalBase.rate_60m * 1.2) };
+      }
+
+      // Fallback for Snooker variants
+      const snookerBase = loaded.Snooker;
+      if (!pricingList.some((p) => p.category === "Snooker_RD")) {
+        loaded.Snooker_RD = { rate_30m: snookerBase.rate_30m, rate_60m: snookerBase.rate_60m };
+      }
+      if (!pricingList.some((p) => p.category === "Snooker_Shuffle")) {
+        loaded.Snooker_Shuffle = { rate_30m: Math.round(snookerBase.rate_30m * 1.25), rate_60m: Math.round(snookerBase.rate_60m * 1.15) };
       }
 
       setRates(loaded);
