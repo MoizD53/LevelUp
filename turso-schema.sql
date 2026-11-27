@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS club_tables (
   current_player TEXT,
   current_phone TEXT,
   game_type TEXT,
+  player_count INTEGER DEFAULT 2,
   session_started_at TEXT,
   scheduled_end_at TEXT,
   duration_choice TEXT,
@@ -26,6 +27,8 @@ CREATE TABLE IF NOT EXISTS table_pricing (
   category TEXT NOT NULL UNIQUE,
   rate_30m REAL NOT NULL,
   rate_60m REAL NOT NULL,
+  slot1_mins INTEGER DEFAULT 30,
+  slot2_mins INTEGER DEFAULT 60,
   updated_by TEXT DEFAULT 'owner',
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -50,6 +53,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   game_type TEXT,
   customer_name TEXT NOT NULL DEFAULT 'Walk-in Player',
   customer_phone TEXT,
+  player_count INTEGER DEFAULT 2,
+  loser_name TEXT,
+  extra_player_fee REAL DEFAULT 0.0,
   hourly_rate REAL NOT NULL,
   rate_snapshot REAL DEFAULT 350.0,
   started_at TEXT NOT NULL DEFAULT (datetime('now')),

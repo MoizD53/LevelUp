@@ -78,26 +78,30 @@ export function StartSessionModal({
   const hasGameCategories = isRoyal || isSnooker; // Sab me 3 categories hai, Khali pool chodke
 
   // Royal specific pricing for 3 categories
-  const royalStandardRates = livePricing.find((p) => p.category === "Royal") || { rate_30m: 300, rate_60m: 500 };
+  const royalStandardRates = livePricing.find((p) => p.category === "Royal") || { rate_30m: 300, rate_60m: 500, slot1_mins: 30, slot2_mins: 60 };
   const royalRDRates = livePricing.find((p) => p.category === "Royal_RD") || royalStandardRates;
   const royalShuffleRates = livePricing.find((p) => p.category === "Royal_Shuffle") || {
     rate_30m: Math.round(royalStandardRates.rate_30m * 1.15),
     rate_60m: Math.round(royalStandardRates.rate_60m * 1.2),
+    slot1_mins: royalStandardRates.slot1_mins || 30,
+    slot2_mins: royalStandardRates.slot2_mins || 60,
   };
 
   // Snooker specific pricing for 3 categories
-  const snookerStandardRates = livePricing.find((p) => p.category === "Snooker") || { rate_30m: 200, rate_60m: 350 };
+  const snookerStandardRates = livePricing.find((p) => p.category === "Snooker") || { rate_30m: 200, rate_60m: 350, slot1_mins: 30, slot2_mins: 60 };
   const snookerRDRates = livePricing.find((p) => p.category === "Snooker_RD") || snookerStandardRates;
   const snookerShuffleRates = livePricing.find((p) => p.category === "Snooker_Shuffle") || {
     rate_30m: Math.round(snookerStandardRates.rate_30m * 1.25),
     rate_60m: Math.round(snookerStandardRates.rate_60m * 1.15),
+    slot1_mins: snookerStandardRates.slot1_mins || 30,
+    slot2_mins: snookerStandardRates.slot2_mins || 60,
   };
 
   // Pool pricing (single category: Khali pool chodke)
-  const poolRates = livePricing.find((p) => p.category === "Pool") || { rate_30m: 150, rate_60m: 250 };
+  const poolRates = livePricing.find((p) => p.category === "Pool") || { rate_30m: 150, rate_60m: 250, slot1_mins: 30, slot2_mins: 60 };
 
   // Active pricing for this match
-  let pricing: { rate_30m: number; rate_60m: number };
+  let pricing: { rate_30m: number; rate_60m: number; slot1_mins?: number; slot2_mins?: number };
   if (isRoyal) {
     pricing = gameType === "Shuffle" ? royalShuffleRates : (gameType === "RD" ? royalRDRates : royalStandardRates);
   } else if (isSnooker) {
@@ -106,7 +110,15 @@ export function StartSessionModal({
     pricing = poolRates;
   }
 
-  const currentPrice = durationChoice === "30m" ? pricing.rate_30m : pricing.rate_60m;
+  const slot1Mins = pricing.slot1_mins || 30;
+  const slot2Mins = pricing.slot2_mins || 60;
+
+  // Extra player surcharge: 2 players included; every player > 2 charged +₹10 each
+  const extraPlayers = Math.max(0, playerCount - 2);
+  const extraPlayerFee = extraPlayers * 10;
+
+  const basePrice = durationChoice === "30m" ? pricing.rate_30m : pricing.rate_60m;
+  const currentPrice = basePrice + extraPlayerFee;
 
   const handleStartMatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +135,8 @@ export function StartSessionModal({
     setIsSubmitting(true);
     setErrorMsg(null);
 
+    const chosenDurationMins = durationChoice === "1h" ? slot2Mins : slot1Mins;
+
     const res = await startFloorSession({
       tableId: table.id,
       tableName: table.name,
@@ -133,6 +147,9 @@ export function StartSessionModal({
       durationChoice,
       rateSnapshot: currentPrice,
       managerName: user?.username || "manager",
+      playerCount,
+      durationMinutes: chosenDurationMins,
+      extraPlayerFee,
     });
 
     if (res.success) {
@@ -279,9 +296,26 @@ export function StartSessionModal({
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
-                Players
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-secondary)" }}>
+                  Players
+                </label>
+                {extraPlayers > 0 && (
+                  <span
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      color: "var(--accent-primary)",
+                      background: "rgba(0, 199, 138, 0.12)",
+                      padding: "1px 6px",
+                      borderRadius: "var(--r-xs)",
+                      border: "1px solid rgba(0, 199, 138, 0.3)",
+                    }}
+                  >
+                    +{extraPlayers} Extra (+₹{extraPlayerFee})
+                  </span>
+                )}
+              </div>
               <div
                 style={{
                   display: "flex",
@@ -293,7 +327,7 @@ export function StartSessionModal({
                   gap: 2,
                 }}
               >
-                {[1, 2, 3, 4].map((count) => (
+                {[1, 2, 3, 4, 5, 6].map((count) => (
                   <button
                     key={count}
                     type="button"
@@ -308,6 +342,9 @@ export function StartSessionModal({
                       color: playerCount === count ? "var(--text-primary)" : "var(--text-muted)",
                       background: playerCount === count ? "var(--bg-surface-raised)" : "transparent",
                       cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
                     {count}P
@@ -316,6 +353,28 @@ export function StartSessionModal({
               </div>
             </div>
           </div>
+
+          {/* Surcharge Notice if extra players (>2) */}
+          {playerCount > 2 && (
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--text-secondary)",
+                background: "rgba(0, 199, 138, 0.08)",
+                border: "1px solid rgba(0, 199, 138, 0.2)",
+                padding: "6px 10px",
+                borderRadius: "var(--r-xs)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span>💡</span>
+              <span>
+                Standard base tariff is for 2 players. ₹10/player added for <strong>{extraPlayers} extra {extraPlayers === 1 ? "player" : "players"}</strong> (+₹{extraPlayerFee}).
+              </span>
+            </div>
+          )}
 
           {/* Game Mode Option (Standard, RD, or Shuffle) — "Sab me 3 categories hai, Khali pool chodke" */}
           {hasGameCategories && (
@@ -445,7 +504,7 @@ export function StartSessionModal({
               Select Initial Match Duration
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {/* 30 Minutes Option */}
+              {/* Slot 1 Option */}
               <button
                 type="button"
                 onClick={() => setDurationChoice("30m")}
@@ -464,19 +523,19 @@ export function StartSessionModal({
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-                    30 Minutes
+                    {slot1Mins} Minutes
                   </span>
                   {durationChoice === "30m" && <CheckCircle2 size={16} color="var(--accent-primary)" />}
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "var(--accent-primary)", fontFamily: "var(--font-mono)" }}>
-                  ₹{pricing.rate_30m}
+                  ₹{pricing.rate_30m + extraPlayerFee}
                 </div>
                 <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 2 }}>
-                  Quick match tariff
+                  {extraPlayerFee > 0 ? `Base ₹${pricing.rate_30m} + ₹${extraPlayerFee} (${extraPlayers} extra)` : "Standard match tariff"}
                 </div>
               </button>
 
-              {/* 1 Hour Option */}
+              {/* Slot 2 Option */}
               <button
                 type="button"
                 onClick={() => setDurationChoice("1h")}
@@ -494,14 +553,16 @@ export function StartSessionModal({
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>1 Hour (60m)</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
+                    {slot2Mins >= 60 ? `${Math.floor(slot2Mins / 60)} Hour${Math.floor(slot2Mins / 60) > 1 ? "s" : ""}${slot2Mins % 60 ? ` ${slot2Mins % 60}m` : ""}` : `${slot2Mins} Minutes`} ({slot2Mins}m)
+                  </span>
                   {durationChoice === "1h" && <CheckCircle2 size={16} color="var(--accent-primary)" />}
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "var(--accent-primary)", fontFamily: "var(--font-mono)" }}>
-                  ₹{pricing.rate_60m}
+                  ₹{pricing.rate_60m + extraPlayerFee}
                 </div>
                 <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 2 }}>
-                  Full frame tariff
+                  {extraPlayerFee > 0 ? `Base ₹${pricing.rate_60m} + ₹${extraPlayerFee} (${extraPlayers} extra)` : "Full frame tariff"}
                 </div>
               </button>
             </div>
@@ -522,10 +583,14 @@ export function StartSessionModal({
           >
             <div>
               <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
-                {hasGameCategories ? `${table.kind} (${gameType}) Tariff:` : "Starting Fee:"}
+                {hasGameCategories ? `${table.kind} (${gameType}) Tariff:` : "Total Match Rate:"}
               </div>
               <div style={{ fontSize: 16, fontWeight: 800, color: "var(--accent-primary)", fontFamily: "var(--font-mono)" }}>
-                ₹{currentPrice} <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)" }}>({hasGameCategories ? `${gameType} · ` : ""}{durationChoice === "30m" ? "30 mins" : "1 hour"})</span>
+                ₹{currentPrice}{" "}
+                <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)" }}>
+                  ({durationChoice === "30m" ? `${slot1Mins}m` : `${slot2Mins}m`} · {playerCount}P
+                  {extraPlayerFee > 0 ? ` incl. +₹${extraPlayerFee}` : ""})
+                </span>
               </div>
             </div>
             <div style={{ textAlign: "right", fontSize: 11, color: "var(--text-muted)" }}>

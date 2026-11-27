@@ -96,17 +96,24 @@ export function FloorTableCard({
   const hasGameCategories = isRoyal || isSnooker;
 
   // Royal specific rates
-  const royalStdRates = pricingList.find((p) => p.category === "Royal") || { rate_30m: 300, rate_60m: 500 };
+  const royalStdRates = pricingList.find((p) => p.category === "Royal") || { rate_30m: 300, rate_60m: 500, slot1_mins: 30, slot2_mins: 60 };
   const royalRDRates = pricingList.find((p) => p.category === "Royal_RD") || royalStdRates;
-  const royalShuffleRates = pricingList.find((p) => p.category === "Royal_Shuffle") || { rate_30m: 350, rate_60m: 600 };
+  const royalShuffleRates = pricingList.find((p) => p.category === "Royal_Shuffle") || { rate_30m: 350, rate_60m: 600, slot1_mins: 30, slot2_mins: 60 };
 
   // Snooker specific rates
-  const snookerStdRates = pricingList.find((p) => p.category === "Snooker") || { rate_30m: 200, rate_60m: 350 };
+  const snookerStdRates = pricingList.find((p) => p.category === "Snooker") || { rate_30m: 200, rate_60m: 350, slot1_mins: 30, slot2_mins: 60 };
   const snookerRDRates = pricingList.find((p) => p.category === "Snooker_RD") || snookerStdRates;
-  const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || { rate_30m: 250, rate_60m: 400 };
+  const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || { rate_30m: 250, rate_60m: 400, slot1_mins: 30, slot2_mins: 60 };
+
+  // Pool rates
+  const poolRates = pricingList.find((p) => p.category === "Pool") || { rate_30m: rate30m, rate_60m: rate60m, slot1_mins: 30, slot2_mins: 60 };
+  const poolSlot1 = poolRates.slot1_mins || 30;
+  const poolSlot2 = poolRates.slot2_mins || 60;
 
   // Booked duration calculation
-  const totalDurationMins = table.duration_choice === "1h" ? 60 : 30;
+  const totalDurationMins = table.duration_choice === "1h"
+    ? (isRoyal ? royalStdRates.slot2_mins || 60 : isSnooker ? snookerStdRates.slot2_mins || 60 : poolSlot2)
+    : (isRoyal ? royalStdRates.slot1_mins || 30 : isSnooker ? snookerStdRates.slot1_mins || 30 : poolSlot1);
   const totalDurationSec = totalDurationMins * 60;
   const progressPct = isPlaying
     ? Math.min(100, Math.max(0, ((totalDurationSec - remainingSec) / totalDurationSec) * 100))
@@ -192,7 +199,7 @@ export function FloorTableCard({
               ) : isSnooker ? (
                 <>Std: ₹{snookerStdRates.rate_30m} · RD: ₹{snookerRDRates.rate_30m} · Safal: ₹{snookerShuffleRates.rate_30m}</>
               ) : (
-                <>₹{rate30m}/30m · ₹{rate60m}/1h</>
+                <>₹{poolRates.rate_30m}/{poolSlot1}m · ₹{poolRates.rate_60m}/{poolSlot2}m</>
               )}
             </div>
           </div>
@@ -486,7 +493,7 @@ export function FloorTableCard({
 
               {/* Duration Booked & Accrued Bill */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, color: "var(--text-secondary)" }}>
-                <span>Booked: {table.duration_choice || "30m"}{hasGameCategories && table.game_type ? ` · ${table.game_type}` : ""}</span>
+                <span>Booked: {table.duration_choice || "30m"}{hasGameCategories && table.game_type ? ` · ${table.game_type}` : ""}{table.player_count && table.player_count > 2 ? ` · ${table.player_count}P` : ""}</span>
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>
                   Bill: ₹{table.bill || 0}
                 </span>

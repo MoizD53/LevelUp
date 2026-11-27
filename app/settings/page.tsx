@@ -9,6 +9,8 @@ import type { TableKind } from "@/lib/types";
 interface PricingRowState {
   rate_30m: number;
   rate_60m: number;
+  slot1_mins: number;
+  slot2_mins: number;
 }
 
 const CATEGORY_CONFIG: {
@@ -79,23 +81,23 @@ export default function TablePricingSettingsPage() {
 
   // Pricing state across all categories (Royal 3, Snooker 3, Pool 1)
   const [rates, setRates] = useState<Record<string, PricingRowState>>({
-    Royal: { rate_30m: 300, rate_60m: 500 },
-    Royal_RD: { rate_30m: 300, rate_60m: 500 },
-    Royal_Shuffle: { rate_30m: 350, rate_60m: 600 },
-    Snooker: { rate_30m: 200, rate_60m: 350 },
-    Snooker_RD: { rate_30m: 200, rate_60m: 350 },
-    Snooker_Shuffle: { rate_30m: 250, rate_60m: 400 },
-    Pool: { rate_30m: 150, rate_60m: 250 },
+    Royal: { rate_30m: 300, rate_60m: 500, slot1_mins: 30, slot2_mins: 60 },
+    Royal_RD: { rate_30m: 300, rate_60m: 500, slot1_mins: 30, slot2_mins: 60 },
+    Royal_Shuffle: { rate_30m: 350, rate_60m: 600, slot1_mins: 30, slot2_mins: 60 },
+    Snooker: { rate_30m: 200, rate_60m: 350, slot1_mins: 30, slot2_mins: 60 },
+    Snooker_RD: { rate_30m: 200, rate_60m: 350, slot1_mins: 30, slot2_mins: 60 },
+    Snooker_Shuffle: { rate_30m: 250, rate_60m: 400, slot1_mins: 30, slot2_mins: 60 },
+    Pool: { rate_30m: 150, rate_60m: 250, slot1_mins: 30, slot2_mins: 60 },
   });
 
   const [initialRates, setInitialRates] = useState<Record<string, PricingRowState>>({
-    Royal: { rate_30m: 300, rate_60m: 500 },
-    Royal_RD: { rate_30m: 300, rate_60m: 500 },
-    Royal_Shuffle: { rate_30m: 350, rate_60m: 600 },
-    Snooker: { rate_30m: 200, rate_60m: 350 },
-    Snooker_RD: { rate_30m: 200, rate_60m: 350 },
-    Snooker_Shuffle: { rate_30m: 250, rate_60m: 400 },
-    Pool: { rate_30m: 150, rate_60m: 250 },
+    Royal: { rate_30m: 300, rate_60m: 500, slot1_mins: 30, slot2_mins: 60 },
+    Royal_RD: { rate_30m: 300, rate_60m: 500, slot1_mins: 30, slot2_mins: 60 },
+    Royal_Shuffle: { rate_30m: 350, rate_60m: 600, slot1_mins: 30, slot2_mins: 60 },
+    Snooker: { rate_30m: 200, rate_60m: 350, slot1_mins: 30, slot2_mins: 60 },
+    Snooker_RD: { rate_30m: 200, rate_60m: 350, slot1_mins: 30, slot2_mins: 60 },
+    Snooker_Shuffle: { rate_30m: 250, rate_60m: 400, slot1_mins: 30, slot2_mins: 60 },
+    Pool: { rate_30m: 150, rate_60m: 250, slot1_mins: 30, slot2_mins: 60 },
   });
 
   const [loading, setLoading] = useState(true);
@@ -109,13 +111,13 @@ export default function TablePricingSettingsPage() {
     try {
       const pricingList = await getTablePricing();
       const loaded: Record<string, PricingRowState> = {
-        Royal: { rate_30m: 300, rate_60m: 500 },
-        Royal_RD: { rate_30m: 300, rate_60m: 500 },
-        Royal_Shuffle: { rate_30m: 350, rate_60m: 600 },
-        Snooker: { rate_30m: 200, rate_60m: 350 },
-        Snooker_RD: { rate_30m: 200, rate_60m: 350 },
-        Snooker_Shuffle: { rate_30m: 250, rate_60m: 400 },
-        Pool: { rate_30m: 150, rate_60m: 250 },
+        Royal: { rate_30m: 300, rate_60m: 500, slot1_mins: 30, slot2_mins: 60 },
+        Royal_RD: { rate_30m: 300, rate_60m: 500, slot1_mins: 30, slot2_mins: 60 },
+        Royal_Shuffle: { rate_30m: 350, rate_60m: 600, slot1_mins: 30, slot2_mins: 60 },
+        Snooker: { rate_30m: 200, rate_60m: 350, slot1_mins: 30, slot2_mins: 60 },
+        Snooker_RD: { rate_30m: 200, rate_60m: 350, slot1_mins: 30, slot2_mins: 60 },
+        Snooker_Shuffle: { rate_30m: 250, rate_60m: 400, slot1_mins: 30, slot2_mins: 60 },
+        Pool: { rate_30m: 150, rate_60m: 250, slot1_mins: 30, slot2_mins: 60 },
       };
 
       pricingList.forEach((p) => {
@@ -123,6 +125,8 @@ export default function TablePricingSettingsPage() {
           loaded[p.category] = {
             rate_30m: p.rate_30m,
             rate_60m: p.rate_60m,
+            slot1_mins: p.slot1_mins || 30,
+            slot2_mins: p.slot2_mins || 60,
           };
         }
       });
@@ -130,19 +134,19 @@ export default function TablePricingSettingsPage() {
       // Fallback for Royal variants if not yet individually populated
       const royalBase = loaded.Royal;
       if (!pricingList.some((p) => p.category === "Royal_RD")) {
-        loaded.Royal_RD = { rate_30m: royalBase.rate_30m, rate_60m: royalBase.rate_60m };
+        loaded.Royal_RD = { rate_30m: royalBase.rate_30m, rate_60m: royalBase.rate_60m, slot1_mins: royalBase.slot1_mins, slot2_mins: royalBase.slot2_mins };
       }
       if (!pricingList.some((p) => p.category === "Royal_Shuffle")) {
-        loaded.Royal_Shuffle = { rate_30m: Math.round(royalBase.rate_30m * 1.15), rate_60m: Math.round(royalBase.rate_60m * 1.2) };
+        loaded.Royal_Shuffle = { rate_30m: Math.round(royalBase.rate_30m * 1.15), rate_60m: Math.round(royalBase.rate_60m * 1.2), slot1_mins: royalBase.slot1_mins, slot2_mins: royalBase.slot2_mins };
       }
 
       // Fallback for Snooker variants
       const snookerBase = loaded.Snooker;
       if (!pricingList.some((p) => p.category === "Snooker_RD")) {
-        loaded.Snooker_RD = { rate_30m: snookerBase.rate_30m, rate_60m: snookerBase.rate_60m };
+        loaded.Snooker_RD = { rate_30m: snookerBase.rate_30m, rate_60m: snookerBase.rate_60m, slot1_mins: snookerBase.slot1_mins, slot2_mins: snookerBase.slot2_mins };
       }
       if (!pricingList.some((p) => p.category === "Snooker_Shuffle")) {
-        loaded.Snooker_Shuffle = { rate_30m: Math.round(snookerBase.rate_30m * 1.25), rate_60m: Math.round(snookerBase.rate_60m * 1.15) };
+        loaded.Snooker_Shuffle = { rate_30m: Math.round(snookerBase.rate_30m * 1.25), rate_60m: Math.round(snookerBase.rate_60m * 1.15), slot1_mins: snookerBase.slot1_mins, slot2_mins: snookerBase.slot2_mins };
       }
 
       setRates(loaded);
@@ -175,14 +179,18 @@ export default function TablePricingSettingsPage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
 
-  const handlePriceChange = (category: string, field: "rate_30m" | "rate_60m", val: string) => {
+  const handlePriceChange = (
+    category: string,
+    field: "rate_30m" | "rate_60m" | "slot1_mins" | "slot2_mins",
+    val: string
+  ) => {
     const cleanNum = val === "" ? 0 : Math.max(0, parseInt(val, 10) || 0);
 
     setRates((prev) => {
       const next = {
         ...prev,
         [category]: {
-          ...(prev[category] || { rate_30m: 0, rate_60m: 0 }),
+          ...(prev[category] || { rate_30m: 0, rate_60m: 0, slot1_mins: 30, slot2_mins: 60 }),
           [field]: cleanNum,
         },
       };
@@ -191,7 +199,9 @@ export default function TablePricingSettingsPage() {
       const hasChanges = Object.keys(next).some((cat) => {
         return (
           next[cat]?.rate_30m !== initialRates[cat]?.rate_30m ||
-          next[cat]?.rate_60m !== initialRates[cat]?.rate_60m
+          next[cat]?.rate_60m !== initialRates[cat]?.rate_60m ||
+          next[cat]?.slot1_mins !== initialRates[cat]?.slot1_mins ||
+          next[cat]?.slot2_mins !== initialRates[cat]?.slot2_mins
         );
       });
       setIsDirty(hasChanges);
@@ -207,13 +217,21 @@ export default function TablePricingSettingsPage() {
     setIsSaving(true);
     setFeedback(null);
 
-    // Validate prices
+    // Validate prices and slot durations
     for (const item of CATEGORY_CONFIG) {
-      const row = rates[item.categoryKey] || { rate_30m: 0, rate_60m: 0 };
+      const row = rates[item.categoryKey] || { rate_30m: 0, rate_60m: 0, slot1_mins: 30, slot2_mins: 60 };
       if (row.rate_30m < 0 || row.rate_60m < 0 || isNaN(row.rate_30m) || isNaN(row.rate_60m)) {
         setFeedback({
           type: "error",
           message: `Please enter valid non-negative amounts for ${item.name}.`,
+        });
+        setIsSaving(false);
+        return;
+      }
+      if (!row.slot1_mins || row.slot1_mins <= 0 || !row.slot2_mins || row.slot2_mins <= 0) {
+        setFeedback({
+          type: "error",
+          message: `Please enter valid slot durations (greater than 0 mins) for ${item.name}.`,
         });
         setIsSaving(false);
         return;
@@ -224,6 +242,8 @@ export default function TablePricingSettingsPage() {
       category: c.categoryKey,
       rate_30m: rates[c.categoryKey]?.rate_30m || 0,
       rate_60m: rates[c.categoryKey]?.rate_60m || 0,
+      slot1_mins: rates[c.categoryKey]?.slot1_mins || 30,
+      slot2_mins: rates[c.categoryKey]?.slot2_mins || 60,
     }));
 
     // Also update legacy 'Snooker' category to match Snooker_RD
@@ -232,6 +252,8 @@ export default function TablePricingSettingsPage() {
         category: "Snooker",
         rate_30m: rates["Snooker_RD"].rate_30m,
         rate_60m: rates["Snooker_RD"].rate_60m,
+        slot1_mins: rates["Snooker_RD"].slot1_mins || 30,
+        slot2_mins: rates["Snooker_RD"].slot2_mins || 60,
       });
     }
 
@@ -357,7 +379,7 @@ export default function TablePricingSettingsPage() {
         }}
       >
         {CATEGORY_CONFIG.map(({ categoryKey, name, countLabel, badge, description }) => {
-          const row = rates[categoryKey] || { rate_30m: 0, rate_60m: 0 };
+          const row = rates[categoryKey] || { rate_30m: 0, rate_60m: 0, slot1_mins: 30, slot2_mins: 60 };
 
           return (
             <div
@@ -418,107 +440,179 @@ export default function TablePricingSettingsPage() {
                 </span>
               </div>
 
-              {/* 30 Minutes Rate */}
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 6,
-                  }}
-                >
-                  30 Minutes
-                </label>
-                <div style={{ position: "relative" }}>
-                  <span
-                    style={{
-                      position: "absolute",
-                      left: 12,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "var(--text-muted)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 14,
-                      fontWeight: 600,
-                    }}
-                  >
-                    ₹
+              {/* Slot 1: Duration & Price */}
+              <div
+                style={{
+                  background: "var(--bg-surface-inset)",
+                  padding: 12,
+                  borderRadius: "var(--r-xs)",
+                  border: "1px solid var(--border-subtle)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--accent-primary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Slot 1 (Standard / Short)
                   </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="10"
-                    value={row.rate_30m || ""}
-                    onChange={(e) => handlePriceChange(categoryKey, "rate_30m", e.target.value)}
-                    placeholder="0"
-                    style={{
-                      width: "100%",
-                      height: 40,
-                      paddingLeft: 28,
-                      paddingRight: 12,
-                      background: "var(--bg-surface-inset)",
-                      border: "1px solid var(--border-default)",
-                      borderRadius: "var(--r-xs)",
-                      color: "var(--text-primary)",
-                      fontSize: 15,
-                      fontWeight: 700,
-                      fontFamily: "var(--font-mono)",
-                    }}
-                  />
+                  <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                    {row.slot1_mins || 30} mins
+                  </span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 10 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      Duration (Mins)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      step="5"
+                      value={row.slot1_mins || ""}
+                      onChange={(e) => handlePriceChange(categoryKey, "slot1_mins", e.target.value)}
+                      placeholder="30"
+                      style={{
+                        width: "100%",
+                        height: 38,
+                        padding: "0 10px",
+                        background: "var(--bg-surface-raised)",
+                        border: "1px solid var(--border-default)",
+                        borderRadius: "var(--r-xs)",
+                        color: "var(--text-primary)",
+                        fontSize: 14,
+                        fontWeight: 700,
+                        fontFamily: "var(--font-mono)",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      Price (₹)
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: 10,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "var(--text-muted)",
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 13,
+                          fontWeight: 600,
+                        }}
+                      >
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="10"
+                        value={row.rate_30m || ""}
+                        onChange={(e) => handlePriceChange(categoryKey, "rate_30m", e.target.value)}
+                        placeholder="0"
+                        style={{
+                          width: "100%",
+                          height: 38,
+                          paddingLeft: 24,
+                          paddingRight: 10,
+                          background: "var(--bg-surface-raised)",
+                          border: "1px solid var(--border-default)",
+                          borderRadius: "var(--r-xs)",
+                          color: "var(--accent-primary)",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          fontFamily: "var(--font-mono)",
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* 1 Hour Rate */}
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 6,
-                  }}
-                >
-                  1 Hour
-                </label>
-                <div style={{ position: "relative" }}>
-                  <span
-                    style={{
-                      position: "absolute",
-                      left: 12,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "var(--text-muted)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 14,
-                      fontWeight: 600,
-                    }}
-                  >
-                    ₹
+              {/* Slot 2: Duration & Price */}
+              <div
+                style={{
+                  background: "var(--bg-surface-inset)",
+                  padding: 12,
+                  borderRadius: "var(--r-xs)",
+                  border: "1px solid var(--border-subtle)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#60A5FA", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Slot 2 (Full / Extended)
                   </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="10"
-                    value={row.rate_60m || ""}
-                    onChange={(e) => handlePriceChange(categoryKey, "rate_60m", e.target.value)}
-                    placeholder="0"
-                    style={{
-                      width: "100%",
-                      height: 40,
-                      paddingLeft: 28,
-                      paddingRight: 12,
-                      background: "var(--bg-surface-inset)",
-                      border: "1px solid var(--border-default)",
-                      borderRadius: "var(--r-xs)",
-                      color: "var(--text-primary)",
-                      fontSize: 15,
-                      fontWeight: 700,
-                      fontFamily: "var(--font-mono)",
-                    }}
-                  />
+                  <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                    {row.slot2_mins || 60} mins
+                  </span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 10 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      Duration (Mins)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      step="5"
+                      value={row.slot2_mins || ""}
+                      onChange={(e) => handlePriceChange(categoryKey, "slot2_mins", e.target.value)}
+                      placeholder="60"
+                      style={{
+                        width: "100%",
+                        height: 38,
+                        padding: "0 10px",
+                        background: "var(--bg-surface-raised)",
+                        border: "1px solid var(--border-default)",
+                        borderRadius: "var(--r-xs)",
+                        color: "var(--text-primary)",
+                        fontSize: 14,
+                        fontWeight: 700,
+                        fontFamily: "var(--font-mono)",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      Price (₹)
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: 10,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "var(--text-muted)",
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 13,
+                          fontWeight: 600,
+                        }}
+                      >
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="10"
+                        value={row.rate_60m || ""}
+                        onChange={(e) => handlePriceChange(categoryKey, "rate_60m", e.target.value)}
+                        placeholder="0"
+                        style={{
+                          width: "100%",
+                          height: 38,
+                          paddingLeft: 24,
+                          paddingRight: 10,
+                          background: "var(--bg-surface-raised)",
+                          border: "1px solid var(--border-default)",
+                          borderRadius: "var(--r-xs)",
+                          color: "#60A5FA",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          fontFamily: "var(--font-mono)",
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

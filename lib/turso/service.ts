@@ -128,6 +128,7 @@ export async function getLiveTables(): Promise<ClubTable[]> {
           if (!p || String(p) === "null" || String(p).trim() === "") return undefined;
           return String(p).trim();
         })(),
+        player_count: row.player_count ? Number(row.player_count) : (activeSess?.player_count ? Number(activeSess.player_count) : 2),
         game_type: row.game_type ? String(row.game_type) : (activeSess?.game_type ? String(activeSess.game_type) : undefined),
         session_started_at: startIso ? String(startIso) : undefined,
         scheduled_end_at: scheduledEndIso ? String(scheduledEndIso) : undefined,
@@ -201,6 +202,9 @@ export async function getLiveSessions(limit: number = 50): Promise<SessionRow[]>
         game_type: s.game_type ? String(s.game_type) : undefined,
         player: String(s.customer_name || "Walk-in Player"),
         phone: s.customer_phone && String(s.customer_phone) !== "null" ? String(s.customer_phone) : undefined,
+        player_count: s.player_count != null ? Number(s.player_count) : undefined,
+        loser_name: s.loser_name ? String(s.loser_name) : undefined,
+        extra_player_fee: s.extra_player_fee != null ? Number(s.extra_player_fee) : 0,
         hourly_rate: Number(s.hourly_rate),
         rate_snapshot: Number(s.rate_snapshot || s.hourly_rate),
         started_at: String(s.started_at),
@@ -435,6 +439,8 @@ export async function getTablePricing(): Promise<TablePricing[]> {
       category: String(r.category) as any,
       rate_30m: Number(r.rate_30m),
       rate_60m: Number(r.rate_60m),
+      slot1_mins: Number(r.slot1_mins || 30),
+      slot2_mins: Number(r.slot2_mins || 60),
       updated_by: r.updated_by ? String(r.updated_by) : "owner",
       updated_at: r.updated_at ? String(r.updated_at) : undefined,
     }));
@@ -447,6 +453,8 @@ export async function getTablePricing(): Promise<TablePricing[]> {
         category: "Royal",
         rate_30m: 300,
         rate_60m: 500,
+        slot1_mins: 30,
+        slot2_mins: 60,
         updated_by: "owner",
         updated_at: undefined,
       });
@@ -457,6 +465,8 @@ export async function getTablePricing(): Promise<TablePricing[]> {
         category: "Royal_RD",
         rate_30m: royalLegacy ? royalLegacy.rate_30m : 300,
         rate_60m: royalLegacy ? royalLegacy.rate_60m : 500,
+        slot1_mins: royalLegacy?.slot1_mins || 30,
+        slot2_mins: royalLegacy?.slot2_mins || 60,
         updated_by: "owner",
         updated_at: undefined,
       });
@@ -467,6 +477,8 @@ export async function getTablePricing(): Promise<TablePricing[]> {
         category: "Royal_Shuffle",
         rate_30m: royalLegacy ? Math.round(royalLegacy.rate_30m * 1.15) : 350,
         rate_60m: royalLegacy ? Math.round(royalLegacy.rate_60m * 1.2) : 600,
+        slot1_mins: royalLegacy?.slot1_mins || 30,
+        slot2_mins: royalLegacy?.slot2_mins || 60,
         updated_by: "owner",
         updated_at: undefined,
       });
@@ -480,6 +492,8 @@ export async function getTablePricing(): Promise<TablePricing[]> {
         category: "Snooker",
         rate_30m: 200,
         rate_60m: 350,
+        slot1_mins: 30,
+        slot2_mins: 60,
         updated_by: "owner",
         updated_at: undefined,
       });
@@ -490,6 +504,8 @@ export async function getTablePricing(): Promise<TablePricing[]> {
         category: "Snooker_RD",
         rate_30m: snookerLegacy ? snookerLegacy.rate_30m : 200,
         rate_60m: snookerLegacy ? snookerLegacy.rate_60m : 350,
+        slot1_mins: snookerLegacy?.slot1_mins || 30,
+        slot2_mins: snookerLegacy?.slot2_mins || 60,
         updated_by: "owner",
         updated_at: undefined,
       });
@@ -500,6 +516,8 @@ export async function getTablePricing(): Promise<TablePricing[]> {
         category: "Snooker_Shuffle",
         rate_30m: snookerLegacy ? Math.round(snookerLegacy.rate_30m * 1.25) : 250,
         rate_60m: snookerLegacy ? Math.round(snookerLegacy.rate_60m * 1.15) : 400,
+        slot1_mins: snookerLegacy?.slot1_mins || 30,
+        slot2_mins: snookerLegacy?.slot2_mins || 60,
         updated_by: "owner",
         updated_at: undefined,
       });
@@ -512,6 +530,8 @@ export async function getTablePricing(): Promise<TablePricing[]> {
         category: "Pool",
         rate_30m: 150,
         rate_60m: 250,
+        slot1_mins: 30,
+        slot2_mins: 60,
         updated_by: "owner",
         updated_at: undefined,
       });
@@ -528,6 +548,8 @@ export async function updateTablePricing(
   category: string,
   rate_30m: number,
   rate_60m: number,
+  slot1_mins: number = 30,
+  slot2_mins: number = 60,
   updatedBy: string = "manager",
   userRole: string = "staff"
 ) {
@@ -539,14 +561,16 @@ export async function updateTablePricing(
   try {
     const client = getTursoClient();
     await client.execute({
-      sql: `INSERT INTO table_pricing (id, category, rate_30m, rate_60m, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, datetime('now'))
+      sql: `INSERT INTO table_pricing (id, category, rate_30m, rate_60m, slot1_mins, slot2_mins, updated_by, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
             ON CONFLICT (category) DO UPDATE SET
               rate_30m = excluded.rate_30m,
               rate_60m = excluded.rate_60m,
+              slot1_mins = excluded.slot1_mins,
+              slot2_mins = excluded.slot2_mins,
               updated_by = excluded.updated_by,
               updated_at = datetime('now')`,
-      args: [`price_${category.toLowerCase()}`, category, rate_30m, rate_60m, updatedBy],
+      args: [`price_${category.toLowerCase()}`, category, rate_30m, rate_60m, slot1_mins, slot2_mins, updatedBy],
     });
 
     // Also update current active tables default hourly rate
@@ -595,7 +619,7 @@ export async function updateTablePricing(
 
 /** 6b. Batch Save Table Pricing for All Categories (Owner & Manager Authorized) */
 export async function saveAllTablePricing(
-  rates: { category: string; rate_30m: number; rate_60m: number }[],
+  rates: { category: string; rate_30m: number; rate_60m: number; slot1_mins?: number; slot2_mins?: number }[],
   updatedBy: string = "manager",
   userRole: string = "staff"
 ): Promise<{ success: boolean; error?: string }> {
@@ -612,6 +636,18 @@ export async function saveAllTablePricing(
         error: `Invalid tariff entered for ${r.category} table. All prices must be non-negative numeric amounts.`,
       };
     }
+    if (r.slot1_mins != null && (isNaN(r.slot1_mins) || r.slot1_mins <= 0)) {
+      return {
+        success: false,
+        error: `Invalid slot 1 duration for ${r.category} table. Duration must be a positive number of minutes.`,
+      };
+    }
+    if (r.slot2_mins != null && (isNaN(r.slot2_mins) || r.slot2_mins <= 0)) {
+      return {
+        success: false,
+        error: `Invalid slot 2 duration for ${r.category} table. Duration must be a positive number of minutes.`,
+      };
+    }
   }
 
   try {
@@ -619,14 +655,24 @@ export async function saveAllTablePricing(
 
     for (const r of rates) {
       await client.execute({
-        sql: `INSERT INTO table_pricing (id, category, rate_30m, rate_60m, updated_by, updated_at)
-              VALUES (?, ?, ?, ?, ?, datetime('now'))
+        sql: `INSERT INTO table_pricing (id, category, rate_30m, rate_60m, slot1_mins, slot2_mins, updated_by, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
               ON CONFLICT (category) DO UPDATE SET
                 rate_30m = excluded.rate_30m,
                 rate_60m = excluded.rate_60m,
+                slot1_mins = excluded.slot1_mins,
+                slot2_mins = excluded.slot2_mins,
                 updated_by = excluded.updated_by,
                 updated_at = datetime('now')`,
-        args: [`price_${r.category.toLowerCase()}`, r.category, r.rate_30m, r.rate_60m, updatedBy],
+        args: [
+          `price_${r.category.toLowerCase()}`,
+          r.category,
+          r.rate_30m,
+          r.rate_60m,
+          r.slot1_mins || 30,
+          r.slot2_mins || 60,
+          updatedBy,
+        ],
       });
 
       // Update club_tables fleet baseline hourly rate for that category
@@ -1139,8 +1185,11 @@ export async function startFloorSession(params: {
   gameType?: string;
   playerName: string;
   phone?: string;
+  playerCount?: number;
   durationChoice: "30m" | "1h";
+  durationMinutes?: number;
   rateSnapshot: number;
+  extraPlayerFee?: number;
   managerName?: string;
 }): Promise<{ success: boolean; sessionId?: string; error?: string }> {
   try {
@@ -1158,17 +1207,19 @@ export async function startFloorSession(params: {
 
     const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const nowIso = new Date().toISOString();
-    // Standard match duration: 30m or 60m across all tables
-    const durationMins = params.durationChoice === "1h" ? 60 : 30;
+    const pCount = params.playerCount && params.playerCount > 0 ? params.playerCount : 2;
+    const durationMins = params.durationMinutes && params.durationMinutes > 0
+      ? params.durationMinutes
+      : (params.durationChoice === "1h" ? 60 : 30);
     const scheduledEndIso = new Date(Date.now() + durationMins * 60000).toISOString();
 
     // 2. Insert Session with Rate Snapshot and Scheduled End
     await client.execute({
       sql: `INSERT INTO sessions (
-              id, table_id, table_name, table_kind, game_type, customer_name, customer_phone,
+              id, table_id, table_name, table_kind, game_type, customer_name, customer_phone, player_count, extra_player_fee,
               hourly_rate, rate_snapshot, started_at, scheduled_end_at, duration_choice, duration_minutes,
               table_amount, final_total, status, paid, payment_status, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 'Unpaid', ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 'Unpaid', ?)`,
       args: [
         sessionId,
         params.tableId,
@@ -1177,6 +1228,8 @@ export async function startFloorSession(params: {
         params.gameType || null,
         params.playerName.trim(),
         params.phone ? params.phone.trim() : null,
+        pCount,
+        params.extraPlayerFee || 0,
         params.rateSnapshot,
         params.rateSnapshot,
         nowIso,
@@ -1192,7 +1245,7 @@ export async function startFloorSession(params: {
     // 3. Mark Table Occupied
     await client.execute({
       sql: `UPDATE club_tables 
-            SET status = 'playing', current_player = ?, current_phone = ?,
+            SET status = 'playing', current_player = ?, current_phone = ?, player_count = ?,
                 game_type = ?,
                 session_started_at = ?, scheduled_end_at = ?, duration_choice = ?,
                 current_session_id = ?, updated_at = datetime('now')
@@ -1200,6 +1253,7 @@ export async function startFloorSession(params: {
       args: [
         params.playerName.trim(),
         params.phone ? params.phone.trim() : null,
+        pCount,
         params.gameType || null,
         nowIso,
         scheduledEndIso,
@@ -1269,6 +1323,7 @@ export async function extendFloorSession(params: {
   tableId: string;
   sessionId?: string;
   extensionChoice: "30m" | "1h";
+  extensionMinutes?: number;
   extensionPrice: number;
   managerName?: string;
 }): Promise<{ success: boolean; error?: string }> {
@@ -1296,7 +1351,9 @@ export async function extendFloorSession(params: {
       return { success: false, error: "No active session found to extend." };
     }
 
-    const extMins = params.extensionChoice === "1h" ? 60 : 30;
+    const extMins = params.extensionMinutes && params.extensionMinutes > 0
+      ? params.extensionMinutes
+      : (params.extensionChoice === "1h" ? 60 : 30);
     const currentEndMs = sess.scheduled_end_at ? new Date(sess.scheduled_end_at).getTime() : Date.now();
     // If time was already up, extend from now; otherwise extend from scheduled end
     const baseMs = Math.max(Date.now(), currentEndMs);
@@ -1454,6 +1511,7 @@ export async function collectFloorPayment(params: {
   cashReceived: number;
   upiReceived: number;
   udharAmount: number;
+  loserName?: string;
   upiReference?: string;
   discountAmount?: number;
   discountReason?: string;
@@ -1493,6 +1551,7 @@ export async function collectFloorPayment(params: {
             SET status = 'completed',
                 ended_at = datetime('now'),
                 final_total = ?,
+                loser_name = ?,
                 discount_amount = ?,
                 discount_reason = ?,
                 cash_paid = ?,
@@ -1506,6 +1565,7 @@ export async function collectFloorPayment(params: {
             WHERE id = ?`,
       args: [
         params.finalTotal,
+        params.loserName?.trim() || null,
         params.discountAmount || 0,
         params.discountReason || null,
         params.cashReceived,
@@ -1525,6 +1585,7 @@ export async function collectFloorPayment(params: {
             SET status = 'available',
                 current_player = NULL,
                 current_phone = NULL,
+                player_count = 2,
                 game_type = NULL,
                 session_started_at = NULL,
                 scheduled_end_at = NULL,

@@ -66,6 +66,7 @@ export function ManageSessionModal({
   const [isExtending, setIsExtending] = useState(false);
 
   // Payment state
+  const [loserName, setLoserName] = useState<string>("");
   const [cashAmount, setCashAmount] = useState<string>("");
   const [upiAmount, setUpiAmount] = useState<string>("");
   const [upiRef, setUpiRef] = useState<string>("");
@@ -75,6 +76,13 @@ export function ManageSessionModal({
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Sync initial loser / payer name with customer name
+  useEffect(() => {
+    if (table?.player) {
+      setLoserName(table.player);
+    }
+  }, [table?.player]);
 
   // Close on Escape key
   useEffect(() => {
@@ -110,19 +118,29 @@ export function ManageSessionModal({
   const isSnooker = table.kind === "Snooker";
 
   // Royal specific rates
-  const royalStdRates = pricingList.find((p) => p.category === "Royal") || { rate_30m: 300, rate_60m: 500 };
+  const royalStdRates = pricingList.find((p) => p.category === "Royal") || { rate_30m: 300, rate_60m: 500, slot1_mins: 30, slot2_mins: 60 };
   const royalRDRates = pricingList.find((p) => p.category === "Royal_RD") || royalStdRates;
-  const royalShuffleRates = pricingList.find((p) => p.category === "Royal_Shuffle") || { rate_30m: 350, rate_60m: 600 };
+  const royalShuffleRates = pricingList.find((p) => p.category === "Royal_Shuffle") || {
+    rate_30m: 350,
+    rate_60m: 600,
+    slot1_mins: royalStdRates.slot1_mins || 30,
+    slot2_mins: royalStdRates.slot2_mins || 60,
+  };
 
   // Snooker specific rates
-  const snookerStdRates = pricingList.find((p) => p.category === "Snooker") || { rate_30m: 200, rate_60m: 350 };
+  const snookerStdRates = pricingList.find((p) => p.category === "Snooker") || { rate_30m: 200, rate_60m: 350, slot1_mins: 30, slot2_mins: 60 };
   const snookerRDRates = pricingList.find((p) => p.category === "Snooker_RD") || snookerStdRates;
-  const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || { rate_30m: 250, rate_60m: 400 };
+  const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || {
+    rate_30m: 250,
+    rate_60m: 400,
+    slot1_mins: snookerStdRates.slot1_mins || 30,
+    slot2_mins: snookerStdRates.slot2_mins || 60,
+  };
 
   // Pool rates
-  const poolRates = pricingList.find((p) => p.category === "Pool") || { rate_30m: 150, rate_60m: 250 };
+  const poolRates = pricingList.find((p) => p.category === "Pool") || { rate_30m: 150, rate_60m: 250, slot1_mins: 30, slot2_mins: 60 };
 
-  let pricing: { rate_30m: number; rate_60m: number };
+  let pricing: { rate_30m: number; rate_60m: number; slot1_mins?: number; slot2_mins?: number };
   if (isRoyal) {
     pricing = table.game_type === "Shuffle" ? royalShuffleRates : (table.game_type === "RD" ? royalRDRates : royalStdRates);
   } else if (isSnooker) {
@@ -130,6 +148,9 @@ export function ManageSessionModal({
   } else {
     pricing = poolRates;
   }
+
+  const slot1Mins = pricing.slot1_mins || 30;
+  const slot2Mins = pricing.slot2_mins || 60;
 
   // Calculate bill components (strictly table match fee + items, no double-counting or inflated overages)
   const baseTableFee = (table.table_amount && table.table_amount > 0)
@@ -235,6 +256,7 @@ export function ManageSessionModal({
     setErrorMsg(null);
 
     const extPrice = choice === "30m" ? pricing.rate_30m : pricing.rate_60m;
+    const extMins = choice === "30m" ? slot1Mins : slot2Mins;
 
     const res = await extendFloorSession({
       tableId: table.id,
@@ -242,10 +264,11 @@ export function ManageSessionModal({
       extensionChoice: choice,
       extensionPrice: extPrice,
       managerName: user?.username || "manager",
+      extensionMinutes: extMins,
     });
 
     if (res.success) {
-      setActionFeedback(`Match extended by ${choice === "30m" ? "30 minutes" : "1 hour"}.`);
+      setActionFeedback(`Match extended by ${choice === "30m" ? `${slot1Mins} minutes` : `${slot2Mins} minutes`}.`);
       onSessionUpdated();
       setTimeout(() => setActionFeedback(null), 3000);
     } else {
@@ -282,6 +305,7 @@ export function ManageSessionModal({
       discountAmount: discountVal,
       discountReason: discountReason.trim() || undefined,
       managerName: user?.username || "manager",
+      loserName: loserName.trim() || undefined,
     });
 
     if (res.success) {
@@ -905,7 +929,7 @@ export function ManageSessionModal({
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
-              {/* +30 Minutes */}
+              {/* Slot 1 Extension */}
               <button
                 type="button"
                 disabled={isExtending}
@@ -926,10 +950,10 @@ export function ManageSessionModal({
               >
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-                    +30 Minutes
+                    +{slot1Mins} Minutes
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                    Add half hour frame
+                    Add {slot1Mins}m frame
                   </div>
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: "var(--accent-primary)", fontFamily: "var(--font-mono)", marginTop: 12 }}>
@@ -937,7 +961,7 @@ export function ManageSessionModal({
                 </div>
               </button>
 
-              {/* +1 Hour */}
+              {/* Slot 2 Extension */}
               <button
                 type="button"
                 disabled={isExtending}
@@ -957,8 +981,12 @@ export function ManageSessionModal({
                 className="table-card-hover"
               >
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>+1 Hour (60m)</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>Add full 1-hour session</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
+                    +{slot2Mins >= 60 ? `${Math.floor(slot2Mins / 60)}h${slot2Mins % 60 ? ` ${slot2Mins % 60}m` : ""}` : `${slot2Mins}m`} ({slot2Mins}m)
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                    Add {slot2Mins}m frame
+                  </div>
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: "var(--accent-primary)", fontFamily: "var(--font-mono)", marginTop: 12 }}>
                   ₹{pricing.rate_60m}
@@ -1081,6 +1109,42 @@ export function ManageSessionModal({
                   Full Udhar
                 </button>
               </div>
+            </div>
+
+            {/* Loser / Frame Payer Name Input */}
+            <div
+              style={{
+                background: "var(--bg-surface-inset)",
+                padding: "10px 12px",
+                borderRadius: "var(--r-xs)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <User size={13} style={{ color: "var(--accent-primary)" }} />
+                  <span>Loser / Frame Settler Name (Payer)</span>
+                </label>
+                <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>
+                  Frame loser settles bill
+                </span>
+              </div>
+              <input
+                placeholder="Enter loser / frame payer name"
+                value={loserName}
+                onChange={(e) => setLoserName(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: 36,
+                  padding: "0 10px",
+                  background: "var(--bg-surface-raised)",
+                  border: "1px solid var(--border-default)",
+                  borderRadius: "var(--r-xs)",
+                  color: "var(--text-primary)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              />
             </div>
 
             {/* Payment Method Inputs (Cash & UPI Split) */}
@@ -1220,7 +1284,7 @@ export function ManageSessionModal({
               >
                 <div style={{ fontWeight: 700, marginBottom: 2 }}>⚠️ Marked to Udhar Khata (Credit)</div>
                 <span>
-                  Recording <strong>₹{remainingUdhar}</strong> as outstanding Udhar for <strong>{table.player}</strong>.
+                  Recording <strong>₹{remainingUdhar}</strong> as outstanding Udhar for <strong>{loserName.trim() || table.player}</strong> (Loser / Payer).
                   Both Manager and Owner will see this in the Udhar List until collected.
                 </span>
               </div>

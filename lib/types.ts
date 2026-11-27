@@ -23,6 +23,7 @@ export interface ClubTable {
   min_fee?: number;
   player?: string;
   phone?: string;
+  player_count?: number;
   game_type?: CuesportGameType | string;
   session_started_at?: string;
   elapsed?: string;
@@ -42,6 +43,8 @@ export interface TablePricing {
   category: PricingCategory;
   rate_30m: number;
   rate_60m: number;
+  slot1_mins?: number;
+  slot2_mins?: number;
   updated_by?: string;
   updated_at?: string;
 }
@@ -75,6 +78,9 @@ export interface SessionRow {
   game_type?: SnookerGameType | string;
   player: string;
   phone?: string;
+  player_count?: number;
+  loser_name?: string;
+  extra_player_fee?: number;
   notes?: string;
   hourly_rate: number;
   rate_snapshot?: number;
