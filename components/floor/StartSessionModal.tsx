@@ -293,7 +293,7 @@ export function StartSessionModal({
                   gap: 2,
                 }}
               >
-                {[1, 2, 4].map((count) => (
+                {[1, 2, 3, 4].map((count) => (
                   <button
                     key={count}
                     type="button"
@@ -464,7 +464,7 @@ export function StartSessionModal({
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-                    {table.kind === "Pool" ? "2 Minutes" : "30 Minutes"}
+                    30 Minutes
                   </span>
                   {durationChoice === "30m" && <CheckCircle2 size={16} color="var(--accent-primary)" />}
                 </div>
@@ -472,7 +472,7 @@ export function StartSessionModal({
                   ₹{pricing.rate_30m}
                 </div>
                 <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 2 }}>
-                  {table.kind === "Pool" ? "2 mins quick session" : "Quick match tariff"}
+                  Quick match tariff
                 </div>
               </button>
 
@@ -525,7 +525,7 @@ export function StartSessionModal({
                 {hasGameCategories ? `${table.kind} (${gameType}) Tariff:` : "Starting Fee:"}
               </div>
               <div style={{ fontSize: 16, fontWeight: 800, color: "var(--accent-primary)", fontFamily: "var(--font-mono)" }}>
-                ₹{currentPrice} <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)" }}>({hasGameCategories ? `${gameType} · ` : ""}{durationChoice === "30m" ? (table.kind === "Pool" ? "2 mins" : "30 mins") : "1 hour"})</span>
+                ₹{currentPrice} <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)" }}>({hasGameCategories ? `${gameType} · ` : ""}{durationChoice === "30m" ? "30 mins" : "1 hour"})</span>
               </div>
             </div>
             <div style={{ textAlign: "right", fontSize: 11, color: "var(--text-muted)" }}>

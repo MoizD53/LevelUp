@@ -27,6 +27,7 @@ export interface ClubTable {
   session_started_at?: string;
   elapsed?: string;
   bill?: number;
+  table_amount?: number;
   notes?: string;
   items_count?: number;
   scheduled_end_at?: string;

@@ -103,11 +103,14 @@ export async function getLiveTables(): Promise<ClubTable[]> {
       }
 
       let bill = 0;
+      let tableAmount = 0;
       if (isPlaying) {
         if (activeSess) {
+          tableAmount = Number(activeSess.table_amount || activeSess.rate_snapshot || 0);
           bill = Number(activeSess.final_total || activeSess.table_amount || 0);
         } else if (startIso) {
-          bill = calculateAccruedBill(String(startIso), Number(row.hourly_rate), Number(row.min_fee || 50));
+          tableAmount = Number(row.hourly_rate);
+          bill = Number(row.hourly_rate);
         }
       }
 
@@ -132,6 +135,7 @@ export async function getLiveTables(): Promise<ClubTable[]> {
         current_session_id: row.current_session_id ? String(row.current_session_id) : (activeSess ? String(activeSess.id) : undefined),
         elapsed: isPlaying && startIso ? formatDurationFromStart(String(startIso)) : undefined,
         bill,
+        table_amount: tableAmount,
         notes: row.notes ? String(row.notes) : undefined,
         remaining_seconds: remainingSec,
         is_time_up: isTimeUp,
@@ -1154,9 +1158,8 @@ export async function startFloorSession(params: {
 
     const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const nowIso = new Date().toISOString();
-    // For Pool table testing, 30m option is set to 2 minutes
-    const isPool = params.tableKind === "Pool" || params.tableId.toLowerCase().includes("pool");
-    const durationMins = params.durationChoice === "1h" ? 60 : (isPool ? 2 : 30);
+    // Standard match duration: 30m or 60m across all tables
+    const durationMins = params.durationChoice === "1h" ? 60 : 30;
     const scheduledEndIso = new Date(Date.now() + durationMins * 60000).toISOString();
 
     // 2. Insert Session with Rate Snapshot and Scheduled End
@@ -1293,8 +1296,7 @@ export async function extendFloorSession(params: {
       return { success: false, error: "No active session found to extend." };
     }
 
-    const isPool = String(sess.table_kind || params.tableId).toLowerCase().includes("pool");
-    const extMins = params.extensionChoice === "1h" ? 60 : (isPool ? 2 : 30);
+    const extMins = params.extensionChoice === "1h" ? 60 : 30;
     const currentEndMs = sess.scheduled_end_at ? new Date(sess.scheduled_end_at).getTime() : Date.now();
     // If time was already up, extend from now; otherwise extend from scheduled end
     const baseMs = Math.max(Date.now(), currentEndMs);

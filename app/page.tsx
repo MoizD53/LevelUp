@@ -31,7 +31,6 @@ import {
   getLiveTables,
   getTablePricing,
   formatDurationFromStart,
-  calculateAccruedBill,
   voidOrDeleteSession,
 } from "@/lib/turso/service";
 import type {
@@ -141,7 +140,7 @@ export default function DashboardPage() {
       loadDashboardData();
     }, 8000);
 
-    // Live 1-second elapsed timer tick
+    // Live 1-second elapsed timer tick (fixed slot rate, no accrued price inflation)
     const tickTimer = setInterval(() => {
       setTables((prev) =>
         prev.map((t) => {
@@ -149,7 +148,6 @@ export default function DashboardPage() {
             return {
               ...t,
               elapsed: formatDurationFromStart(t.session_started_at),
-              bill: calculateAccruedBill(t.session_started_at, t.hourly_rate, t.min_fee || 50),
             };
           }
           return t;

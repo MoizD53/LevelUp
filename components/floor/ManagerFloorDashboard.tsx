@@ -30,7 +30,6 @@ import {
   getLiveProducts,
   getTablePricing,
   formatDurationFromStart,
-  calculateAccruedBill,
   formatCountdown,
   voidOrDeleteSession,
 } from "@/lib/turso/service";

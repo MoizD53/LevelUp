@@ -106,7 +106,7 @@ export function FloorTableCard({
   const snookerShuffleRates = pricingList.find((p) => p.category === "Snooker_Shuffle") || { rate_30m: 250, rate_60m: 400 };
 
   // Booked duration calculation
-  const totalDurationMins = table.duration_choice === "1h" ? 60 : (table.kind === "Pool" ? 2 : 30);
+  const totalDurationMins = table.duration_choice === "1h" ? 60 : 30;
   const totalDurationSec = totalDurationMins * 60;
   const progressPct = isPlaying
     ? Math.min(100, Math.max(0, ((totalDurationSec - remainingSec) / totalDurationSec) * 100))
@@ -192,7 +192,7 @@ export function FloorTableCard({
               ) : isSnooker ? (
                 <>Std: ₹{snookerStdRates.rate_30m} · RD: ₹{snookerRDRates.rate_30m} · Safal: ₹{snookerShuffleRates.rate_30m}</>
               ) : (
-                <>₹{rate30m}/{table.kind === "Pool" ? "2m" : "30m"} · ₹{rate60m}/1h</>
+                <>₹{rate30m}/30m · ₹{rate60m}/1h</>
               )}
             </div>
           </div>
@@ -486,7 +486,7 @@ export function FloorTableCard({
 
               {/* Duration Booked & Accrued Bill */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, color: "var(--text-secondary)" }}>
-                <span>Booked: {table.duration_choice || "30m"}{isSnooker && table.game_type ? ` · ${table.game_type}` : ""}</span>
+                <span>Booked: {table.duration_choice || "30m"}{hasGameCategories && table.game_type ? ` · ${table.game_type}` : ""}</span>
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>
                   Bill: ₹{table.bill || 0}
                 </span>

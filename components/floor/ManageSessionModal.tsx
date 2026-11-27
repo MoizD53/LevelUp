@@ -131,8 +131,10 @@ export function ManageSessionModal({
     pricing = poolRates;
   }
 
-  // Calculate bill components
-  const baseTableFee = table.bill || (table.duration_choice === "1h" ? pricing.rate_60m : pricing.rate_30m);
+  // Calculate bill components (strictly table match fee + items, no double-counting or inflated overages)
+  const baseTableFee = (table.table_amount && table.table_amount > 0)
+    ? table.table_amount
+    : (table.duration_choice === "1h" ? pricing.rate_60m : pricing.rate_30m);
   const itemsTotal = existingItems.reduce((acc, it) => acc + (it.total_price || 0), 0);
   const discountVal = Math.max(0, parseFloat(discountAmount) || 0);
   const totalBill = Math.max(0, baseTableFee + itemsTotal - discountVal);
@@ -924,10 +926,10 @@ export function ManageSessionModal({
               >
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-                    +{table.kind === "Pool" ? "2 Minutes" : "30 Minutes"}
+                    +30 Minutes
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                    {table.kind === "Pool" ? "Add 2 mins quick frame" : "Add half hour frame"}
+                    Add half hour frame
                   </div>
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: "var(--accent-primary)", fontFamily: "var(--font-mono)", marginTop: 12 }}>
